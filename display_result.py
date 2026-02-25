@@ -27,7 +27,7 @@ import numpy as np
 from scipy.signal import find_peaks
 
 # load prediction results
-result_folder = script_dir / 'result_atrium'
+result_folder = script_dir / 'result'
 
 # name_prefix = '6-1-1-1-LA PACING CL 300 FROM CS 13 14'
 # name_prefix = '6-1-1-LA PACING CL 270 FROM CS3 4'

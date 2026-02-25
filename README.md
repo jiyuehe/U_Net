@@ -13,7 +13,7 @@ or
 tmux attach -t 0
 
 docker run --gpus all -it \
-    -v /home/j/Desktop/ssd/git/HeartSim:/workspace \
+    -v /home/j/Desktop/ssd/git/heart_project:/workspace \
     -v /home/j/Desktop/hdd:/data \
     -p 8888:8888 \
     my_minkowski_image:latest /bin/bash

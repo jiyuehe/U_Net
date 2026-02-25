@@ -13,8 +13,6 @@ if str(workspace_root) not in sys.path:
 import common
 
 import modules as parent_codes
-# import sys
-# sys.path.insert(0, str(script_dir.parent / 'PyHeartSim'))  # add PyHeartSim directory to path
 
 import torch
 import numpy as np
@@ -52,7 +50,7 @@ elif parameters['geometry_flag'] == 1:
 
    geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed.npz'
    data_folder_name = 'atrium 2, 2 focal 2 location 15ms apart'
-   parameters['result_folder'] = script_dir / 'result_atrium'
+   parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
 elif parameters['geometry_flag'] == 4:
