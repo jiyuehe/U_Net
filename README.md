@@ -19,3 +19,5 @@ docker run --gpus all -it \
     my_minkowski_image:latest /bin/bash
 
 python3 U_Net/main.py
+
+To exit docker, command line: exit

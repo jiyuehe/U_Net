@@ -9,7 +9,7 @@ import numpy as np
 import shutil
 
 #%%
-data_folder_name = 'atrium 2, 2 focal 2 location 15ms apart'
+data_folder_name = '103_1-lagood'
 data_folder = Path('/home/j/Desktop/hdd') / data_folder_name
 
 # grab file names of simulation_results_*_*.npy and extract s1, s2 from filenames
