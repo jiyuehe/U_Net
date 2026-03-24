@@ -2,13 +2,41 @@ import numpy as np
 from pathlib import Path
 import torch
 
+
+def _normalize_to_unit_interval(values):
+    min_value = np.min(values)
+    max_value = np.max(values)
+    range_value = max_value - min_value
+    if range_value == 0:
+        return np.zeros_like(values, dtype=np.float32)
+    return ((values - min_value) / range_value).astype(np.float32)
+
+
+def _extract_input_signal(payload, data_flag, file_path):
+    if data_flag == 0:
+        candidate_keys = ['action_potential']
+    elif data_flag == 1:
+        candidate_keys = ['electrogram_unipolar', 'unipolar_electrogram', 'electrogram', 'egm_unipolar', 'action_potential']
+    else:
+        raise ValueError(f"Unsupported data_flag: {data_flag}. Expected 0 (action potential) or 1 (electrogram).")
+
+    for key in candidate_keys:
+        if key in payload:
+            return payload[key]
+
+    available_keys = sorted(payload.keys())
+    raise KeyError(
+        f"None of expected keys {candidate_keys} found in {file_path}. "
+        f"Available keys: {available_keys}"
+    )
+
 def file_index(data_folder, n_files_to_use):
-    # grab file names of simulation_results_*_*.npy and extract s1, s2 from filenames
-    npy_files = list(data_folder.glob('simulation_results_*_*.npy'))
+    # grab file names of simulation_results_*_*.npz and extract s1, s2 from filenames
+    npz_files = list(data_folder.glob('simulation_results_*_*.npz'))
     s1 = []
     s2 = []
-    for f in npy_files:
-        # filename format: simulation_results_{s1}_{s2}.npy
+    for f in npz_files:
+        # filename format: simulation_results_{s1}_{s2}.npz
         stem = f.stem # e.g., 'simulation_results_123_456'
         parts = stem.replace('simulation_results_', '').split('_')
         s1.append(int(parts[0]))
@@ -36,27 +64,21 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
     x_temp = []
     y_temp = []
     for i in range(start_idx, end_idx):
-        file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}_{s2_index[i]}.npy'
-        if parameters['data_flag'] == 0:
-            action_potential = np.load(file_name_x, allow_pickle=True).item()['action_potential'] # shape (t, nodes)
-            action_potential = (action_potential - np.min(action_potential)) / (np.max(action_potential) - np.min(action_potential)) # normalize to 0-1
-            x = action_potential
-            x[:, non_e_id] = 0
-        elif parameters['data_flag'] == 1:
-            electrogram_unipolar = np.load(file_name_x, allow_pickle=True).item()['electrogram_unipolar'] # shape (t, n_nodes)
-            electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
-            x = electrogram_unipolar
-            x[:, non_e_id] = 0
+        file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}_{s2_index[i]}.npz'
+        payload = dict(np.load(file_name_x, allow_pickle=False))
+        x = _extract_input_signal(payload, parameters['data_flag'], file_name_x)
+        x = _normalize_to_unit_interval(x)
+        x[:, non_e_id] = 0
         
         x_temp.append(x)
         
-        file_name_y_1 = Path(data_folder) / f'lat_{s1_index[i]}.npy'
-        y_1 = np.load(file_name_y_1)
-        y_1 = (y_1 - np.min(y_1)) / (np.max(y_1) - np.min(y_1)) # normalize to 0-1
+        file_name_y_1 = Path(data_folder) / f'lat_{s1_index[i]}.npz'
+        y_1 = np.load(file_name_y_1)['lat']
+        y_1 = _normalize_to_unit_interval(y_1)
 
-        file_name_y_2 = Path(data_folder) / f'lat_{s2_index[i]}.npy'
-        y_2 = np.load(file_name_y_2)
-        y_2 = (y_2 - np.min(y_2)) / (np.max(y_2) - np.min(y_2)) # normalize to 0-1
+        file_name_y_2 = Path(data_folder) / f'lat_{s2_index[i]}.npz'
+        y_2 = np.load(file_name_y_2)['lat']
+        y_2 = _normalize_to_unit_interval(y_2)
 
         y = np.vstack((y_1, y_2)) # shape (2, nodes)
         y_temp.append(y)

@@ -12,12 +12,12 @@ import shutil
 data_folder_name = '103_1-lagood'
 data_folder = Path('/home/j/Desktop/hdd') / data_folder_name
 
-# grab file names of simulation_results_*_*.npy and extract s1, s2 from filenames
-npy_files = list(data_folder.glob('simulation_results_*_*.npy'))
+# grab file names of simulation_results_*_*.npz and extract s1, s2 from filenames
+npy_files = list(data_folder.glob('simulation_results_*_*.npz'))
 s1 = []
 s2 = []
 for f in npy_files:
-    # filename format: simulation_results_{s1}_{s2}.npy
+    # filename format: simulation_results_{s1}_{s2}.npz
     stem = f.stem # e.g., 'simulation_results_123_456'
     parts = stem.replace('simulation_results_', '').split('_')
     s1.append(int(parts[0]))
@@ -57,7 +57,7 @@ def grab_file_names(id1, id2):
     file_names_1 = list(data_folder.glob(file_name))
 
     # mix rhythm simulation results
-    file_name = f'simulation_results_{id1}_{id2}.npy'
+    file_name = f'simulation_results_{id1}_{id2}.npz'
     file_names_2 = list(data_folder.glob(file_name))
 
     # combine all file_names lists into one variable
