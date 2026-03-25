@@ -22,18 +22,25 @@ from torchview import draw_graph # for visualizing the neural network model arch
 #%%
 # parameters
 parameters = {}
+
+# time samples
 parameters['t_start'] = 0
 parameters['time_step'] = 1
 parameters['n_timepoints'] = 300
 parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * parameters['time_step']
+
+# training parameters
 parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 500 # maximum epochs (training may stop earlier with early stopping)
 parameters['early_stopping_patience'] = 10 # stop training if no improvement for this many epochs
+
+# data parameters
 parameters['data_flag'] = 1 # 0: action potential; 1: electrogram
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
-train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
+# mode settings
+train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
@@ -44,9 +51,6 @@ if parameters['geometry_flag'] == 0:
    parameters['grid_height'] = 128 # do not change
    parameters['grid_width'] = 128 # do not change
 elif parameters['geometry_flag'] == 1:
-   # name_prefix = '6-1-1-1-LA PACING CL 300 FROM CS 13 14'
-   # name_prefix = '6-1-1-LA PACING CL 270 FROM CS3 4'
-   # name_prefix = '6-1-LA PACING CS 11 12 300CL'
    name_prefix = '103_1-lagood'
 
    geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed.npz'
