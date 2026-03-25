@@ -22,6 +22,7 @@ for folder_name in ['train', 'validation', 'test']:
         if f.is_file():
             shutil.move(str(f), str(data_folder / f.name))
 
+#%%
 # grab file names of simulation_results_*_*.npz and extract s1, s2 from filenames
 npy_files = list(data_folder.glob('simulation_results_*_*.npz'))
 s1 = []
