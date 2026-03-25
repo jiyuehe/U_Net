@@ -33,7 +33,7 @@ parameters['early_stopping_patience'] = 10 # stop training if no improvement for
 parameters['data_flag'] = 1 # 0: action potential; 1: electrogram
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
@@ -173,7 +173,7 @@ if train_flag == 0:
 
    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
-   testing_data_flag = 1 # 0: simulation data; 1: clinical data
+   testing_data_flag = 0 # 0: simulation data; 1: clinical data
    if testing_data_flag == 0:
       predicted_data, truth_data = parent_codes.train_predict.predict(parameters)
    elif testing_data_flag == 1:
@@ -266,10 +266,10 @@ if train_flag == 0:
             all_predictions.append(prediction)
 
          # concatenate all batches
-         predictions = torch.cat(all_predictions, dim=0).numpy()
+         predicted_data = torch.cat(all_predictions, dim=0).numpy()
 
    # save the prediction results
-   np.save(parameters['result_folder'] / f'predictions_{name_prefix}.npy', predictions)
+   np.save(parameters['result_folder'] / f'predictions_{name_prefix}.npy', predicted_data)
 
    #%%
    if testing_data_flag == 0:

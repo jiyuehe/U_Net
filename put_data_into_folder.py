@@ -12,6 +12,16 @@ import shutil
 data_folder_name = '103_1-lagood'
 data_folder = Path('/home/j/Desktop/hdd') / data_folder_name
 
+# create folders if not exist
+for folder_name in ['train', 'validation', 'test']:
+    (data_folder / folder_name).mkdir(parents=True, exist_ok=True)
+
+# move all files in train, validation, test to data_folder
+for folder_name in ['train', 'validation', 'test']:
+    for f in (data_folder / folder_name).iterdir():
+        if f.is_file():
+            shutil.move(str(f), str(data_folder / f.name))
+
 # grab file names of simulation_results_*_*.npz and extract s1, s2 from filenames
 npy_files = list(data_folder.glob('simulation_results_*_*.npz'))
 s1 = []

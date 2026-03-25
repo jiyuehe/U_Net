@@ -146,7 +146,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
             image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_{parameters["s2_test"][sample_id]}_lat_mix_all_nodes.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
-        common.corp_image.execute(image_file_name)
+        common.crop_image.execute(image_file_name)
 
 def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters):
     plot_scatter_voxel_flag = 1 # 1: scatter plot; 0: voxel plot
@@ -187,7 +187,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
             image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_{parameters["s2_test"][sample_id]}_{str(rhythm_id)}_lat_truth.png'
             plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
             plt.close()
-            common.corp_image.execute(image_file_name)
+            common.crop_image.execute(image_file_name)
 
             data_min = np.nanmin(data_predicted)
             data_max = np.nanmax(data_predicted)
@@ -209,4 +209,4 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
             image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_{parameters["s2_test"][sample_id]}_{str(rhythm_id)}_lat_predict_MAE_{error_mae:.4f}.png'
             plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
             plt.close()
-            common.corp_image.execute(image_file_name)
+            common.crop_image.execute(image_file_name)
