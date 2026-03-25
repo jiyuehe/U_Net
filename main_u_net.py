@@ -88,14 +88,17 @@ parameters['non_e_id'] = np.setdiff1d(np.arange(n_nodes), parameters['e_id'])
 
 debug_plot = 0
 if debug_plot == 1:
+   node = parameters['node']
+
    plt.figure()
    ax = plt.axes(projection='3d')
-   ax.scatter(parameters['node'][parameters['non_e_id'], 0], parameters['node'][parameters['non_e_id'], 1], parameters['node'][parameters['non_e_id'], 2], c='grey', s=1, edgecolor='none', linewidth=0, alpha=0.3)
-   ax.scatter(parameters['node'][parameters['e_id'], 0], parameters['node'][parameters['e_id'], 1], parameters['node'][parameters['e_id'], 2], c='blue', edgecolor='none', linewidth=0)
+   ax.scatter(node[:, 0], node[:, 1], node[:, 2], c='grey', s=1, edgecolor='none', linewidth=0, alpha=0.3)
+   ax.scatter(node[e_id, 0], node[e_id, 1], node[e_id, 2], c='blue', edgecolor='none', linewidth=0)
    plt.axis('off')
    common.set_axes_equal.execute(ax)
    ax.view_init(elev=90, azim=-90)
    plt.tight_layout()
+   
    plt.savefig(parameters['result_folder'] / f'electrode_{coef}.png', dpi=300, bbox_inches="tight", pad_inches=0)
    plt.close()
 
