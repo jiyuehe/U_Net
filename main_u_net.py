@@ -45,7 +45,7 @@ continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: tr
 
 # geometry
 if parameters['geometry_flag'] == 0:
-   geometry_file_name = script_dir.parent / '0_data' / 'sheet.npy'
+   map_file_name = script_dir.parent / '0_data' / 'sheet.npy'
    data_folder_name = '2d data, 2 focal 2 location 15ms apart'
    parameters['result_folder'] = script_dir / 'result_2d'
    parameters['grid_height'] = 128 # do not change
@@ -53,13 +53,13 @@ if parameters['geometry_flag'] == 0:
 elif parameters['geometry_flag'] == 1:
    name_prefix = '103_1-lagood'
 
-   geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed.npz'
+   map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map.npz'
    data_folder_name = '103_1-lagood'
    parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
 elif parameters['geometry_flag'] == 4:
-   geometry_file_name = script_dir.parent / '0_data' / 'hollow_slab.npy'
+   map_file_name = script_dir.parent / '0_data' / 'hollow_slab.npy'
    data_folder_name = '3d data, 2 focal 2 location 15ms apart'
    parameters['result_folder'] = script_dir / 'result_3d'
    parameters['grid_height'] = [] # unused; for code compatibility
@@ -71,13 +71,13 @@ if parameters['geometry_flag'] in [1, 4]:
 
 #%%
 # load geometry
-data = np.load(geometry_file_name, allow_pickle=True)
-geometry_data = {k: data[k] for k in data.files}
+data = np.load(map_file_name, allow_pickle=True)
+map_data = {k: data[k] for k in data.files}
 
-parameters['node'] = geometry_data['voxel'] # shape: (nodes, 3)
+parameters['node'] = map_data['voxel'] # shape: (nodes, 3)
 n_nodes = parameters['node'].shape[0]
 
-e_id = geometry_data['electrode_node_id']
+e_id = map_data['electrode_node_id']
 
 n_electrode = len(e_id)
 coef = n_electrode / n_nodes
@@ -207,7 +207,7 @@ if train_flag == 0:
             x_temp = []
             for i in range(start_idx, end_idx):
                ##########
-               electrogram_unipolar = geometry_data['clinical_electrogram_unipolar_woi'].T # shape (t, n_nodes)
+               electrogram_unipolar = map_data['clinical_electrogram_unipolar_woi'].T # shape (t, n_nodes)
                # electrogram_unipolar = simulation_egm
                electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
                
