@@ -74,10 +74,13 @@ if parameters['geometry_flag'] in [1, 4]:
 data = np.load(map_file_name, allow_pickle=True)
 map_data = {k: data[k] for k in data.files}
 
-parameters['node'] = map_data['voxel'] # shape: (nodes, 3)
+parameters['node'] = map_data['vertex_3mm']
 n_nodes = parameters['node'].shape[0]
 
-e_id = map_data['electrode_node_id']
+# find the good electrode nodes that have good signals
+# e_id = map_data['vertex_id_for_electrode_3mm']
+act = map_data['clinical_activation_uni']
+e_id = [i for i, x in enumerate(act) if x != 0]
 
 n_electrode = len(e_id)
 coef = n_electrode / n_nodes
@@ -92,8 +95,8 @@ if debug_plot == 1:
 
    plt.figure()
    ax = plt.axes(projection='3d')
-   ax.scatter(node[:, 0], node[:, 1], node[:, 2], c='grey', s=1, edgecolor='none', linewidth=0, alpha=0.3)
-   ax.scatter(node[e_id, 0], node[e_id, 1], node[e_id, 2], c='blue', edgecolor='none', linewidth=0)
+   ax.scatter(node[:, 0], node[:, 1], node[:, 2], c='black', s=1, edgecolor='none', linewidth=0, alpha=0.7)
+   ax.scatter(node[e_id, 0], node[e_id, 1], node[e_id, 2], c='blue', s=3, edgecolor='none', linewidth=0)
    plt.axis('off')
    common.set_axes_equal.execute(ax)
    ax.view_init(elev=90, azim=-90)
