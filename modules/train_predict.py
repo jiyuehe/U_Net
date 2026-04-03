@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import modules as parent_codes
+import modules
 import time
 
 try:
@@ -102,7 +102,7 @@ def train_model(parameters):
             # load batch data
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
-            input_data, output_data = parent_codes.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, s2_train_shuffled, parameters['non_e_id'], parameters)
+            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, s2_train_shuffled, parameters['non_e_id'], parameters)
 
             if parameters['geometry_flag'] == 0: # 0: 2D sheet
                 # reshape input data
@@ -154,7 +154,7 @@ def train_model(parameters):
                 # load batch data
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
-                input_data, output_data = parent_codes.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], parameters['s2_validation'], parameters['non_e_id'], parameters)
+                input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], parameters['s2_validation'], parameters['non_e_id'], parameters)
 
                 if parameters['geometry_flag'] == 0: # 0: 2D sheet
                     neural_network_input = input_data.reshape(input_data.shape[0], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width']) # (batch, t, nodes) -> (batch, t, grid_height, grid_width)
@@ -235,7 +235,7 @@ def predict(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            input_data, output_data = parent_codes.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], parameters['non_e_id'], parameters)
+            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], parameters['non_e_id'], parameters)
             if parameters['geometry_flag'] == 0: # 0: 2D sheet
                 # reshape input data
                 neural_network_input = input_data.reshape(input_data.shape[0], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width'])
