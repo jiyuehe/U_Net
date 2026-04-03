@@ -12,12 +12,16 @@ if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
 import common
 
-import modules as parent_codes
+import modules
 
 import torch
 import numpy as np
 import matplotlib.pyplot as plt 
 from torchview import draw_graph # for visualizing the neural network model architecture
+
+# import plotly.graph_objects as go
+# import plotly.io as pio
+# pio.renderers.default = 'browser'
 
 #%%
 # parameters
@@ -54,7 +58,7 @@ elif parameters['geometry_flag'] == 1:
    name_prefix = '103_1-lagood'
 
    map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map.npz'
-   data_folder_name = '103_1-lagood'
+   data_folder_name = '103_1-lagood_3mm'
    parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
@@ -74,36 +78,49 @@ if parameters['geometry_flag'] in [1, 4]:
 data = np.load(map_file_name, allow_pickle=True)
 map_data = {k: data[k] for k in data.files}
 
+# find the good electrode nodes that have good signals
+e_id = map_data['vertex_id_for_electrode_3mm']
+act = map_data['clinical_activation_uni']
+good_id = [i for i, x in enumerate(act) if x != 0]
+good_e_id = e_id[good_id]
+
 parameters['node'] = map_data['vertex_3mm']
 n_nodes = parameters['node'].shape[0]
 
-# find the good electrode nodes that have good signals
-# e_id = map_data['vertex_id_for_electrode_3mm']
-act = map_data['clinical_activation_uni']
-e_id = [i for i, x in enumerate(act) if x != 0]
-
-n_electrode = len(e_id)
+n_electrode = len(good_e_id)
 coef = n_electrode / n_nodes
 print(f'n_node: {n_nodes}, n_electrode: {n_electrode}, percentage: {coef*100:.2f}%')
 
-parameters['e_id'] = e_id
+parameters['e_id'] = good_e_id
 parameters['non_e_id'] = np.setdiff1d(np.arange(n_nodes), parameters['e_id'])
 
 debug_plot = 0
 if debug_plot == 1:
    node = parameters['node']
 
-   plt.figure()
-   ax = plt.axes(projection='3d')
-   ax.scatter(node[:, 0], node[:, 1], node[:, 2], c='black', s=1, edgecolor='none', linewidth=0, alpha=0.7)
-   ax.scatter(node[e_id, 0], node[e_id, 1], node[e_id, 2], c='blue', s=3, edgecolor='none', linewidth=0)
-   plt.axis('off')
-   common.set_axes_equal.execute(ax)
-   ax.view_init(elev=90, azim=-90)
-   plt.tight_layout()
-   
-   plt.savefig(parameters['result_folder'] / f'electrode_{coef}.png', dpi=300, bbox_inches="tight", pad_inches=0)
-   plt.close()
+   fig = go.Figure()
+   fig.add_trace(go.Scatter3d(
+      x=node[:, 0], y=node[:, 1], z=node[:, 2],
+      mode='markers',
+      marker=dict(size=1, color='black', opacity=0.7),
+      showlegend=False
+   ))
+   fig.add_trace(go.Scatter3d(
+      x=node[good_e_id, 0], y=node[good_e_id, 1], z=node[good_e_id, 2],
+      mode='markers',
+      marker=dict(size=3, color='blue'),
+      showlegend=False
+   ))
+   fig.update_layout(
+      scene=dict(
+         camera=dict(eye=dict(x=0, y=0, z=2.5)),
+         xaxis=dict(visible=False),
+         yaxis=dict(visible=False),
+         zaxis=dict(visible=False),
+      ),
+      margin=dict(l=0, r=0, t=0, b=0),
+   )
+   fig.show()
 
 #%%
 # load the index file
@@ -116,9 +133,9 @@ elif parameters['geometry_flag'] in [1, 4]:
 # create the U-Net model
 parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if parameters['geometry_flag'] == 0:
-   parameters['model'] = parent_codes.unet.UNet(parameters['n_timepoints'], 2).to(parameters['device'])
+   parameters['model'] = modules.unet.UNet(parameters['n_timepoints'], 2).to(parameters['device'])
 elif parameters['geometry_flag'] in [1, 4]:
-   parameters['model'] = parent_codes.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=2,D=3).to(parameters['device']) # D is the dimension of the input data
+   parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=2,D=3).to(parameters['device']) # D is the dimension of the input data
 
 debug_flag = 0
 if debug_flag == 1:
@@ -148,15 +165,15 @@ if debug_flag == 1:
 # load data file index
 # load training data file index
 n_files_to_use = -1 # -1: use all files; or specify a number
-parameters['s1_train'], parameters['s2_train'] = parent_codes.load_data.file_index(parameters['data_folder'] / 'train', n_files_to_use)
+parameters['s1_train'], parameters['s2_train'] = modules.load_data.file_index(parameters['data_folder'] / 'train', n_files_to_use)
 
 # load validation data file index
 n_files_to_use = -1 # -1: use all files; or specify a number
-parameters['s1_validation'], parameters['s2_validation'] = parent_codes.load_data.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
+parameters['s1_validation'], parameters['s2_validation'] = modules.load_data.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
 
 # load test data file index
 n_files_to_use = 10 # -1: use all files; or specify a number
-parameters['s1_test'], parameters['s2_test'] = parent_codes.load_data.file_index(parameters['data_folder'] / 'test', n_files_to_use)
+parameters['s1_test'], parameters['s2_test'] = modules.load_data.file_index(parameters['data_folder'] / 'test', n_files_to_use)
 
 print(f'n_train: {len(parameters["s1_train"])}, n_validation: {len(parameters["s1_validation"])}, n_test: {len(parameters["s1_test"])}')
 
@@ -171,10 +188,10 @@ if train_flag == 1:
       parameters['model'].load_state_dict(torch.load(model_path, map_location=parameters['device']))
 
    # train the model
-   train_loss_history, val_loss_history = parent_codes.train_predict.train_model(parameters)
+   train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
 
 # plot loss history
-parent_codes.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
+modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
 
 #%%
 if train_flag == 0:
@@ -185,7 +202,7 @@ if train_flag == 0:
 
    testing_data_flag = 0 # 0: simulation data; 1: clinical data
    if testing_data_flag == 0:
-      predicted_data, truth_data = parent_codes.train_predict.predict(parameters)
+      predicted_data, truth_data = modules.train_predict.predict(parameters)
    elif testing_data_flag == 1:
       parameters['model'].eval()
 
@@ -289,14 +306,14 @@ if train_flag == 0:
 
       # plot full mix rhythm data
       sparse_electrode_flag = 0 # 1: use sparse electrode nodes; 0: use all nodes
-      parent_codes.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
+      modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
 
       # plot sparse electrode nodes mix rhythm data
       sparse_electrode_flag = 1 # 1: use sparse electrode nodes; 0: use all nodes
-      parent_codes.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
+      modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
 
       # plot truth and predicted activation time map
-      parent_codes.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 
 print('done')
 
