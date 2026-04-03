@@ -79,12 +79,14 @@ data = np.load(map_file_name, allow_pickle=True)
 map_data = {k: data[k] for k in data.files}
 
 # find the good electrode nodes that have good signals
-e_id = map_data['vertex_id_for_electrode_3mm']
+vertex_id_for_electrode_3mm = map_data['vertex_id_for_electrode_3mm']
 act = map_data['clinical_activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
-good_e_id = e_id[good_id]
+good_e_id = vertex_id_for_electrode_3mm[good_id]
+voxel_id_of_vertex3mm = map_data['voxel_id_of_vertex3mm']
+good_voxel_id = voxel_id_of_vertex3mm[good_e_id]
 
-parameters['node'] = map_data['vertex_3mm']
+parameters['node'] = map_data['voxel'][voxel_id_of_vertex3mm,:]
 n_nodes = parameters['node'].shape[0]
 
 n_electrode = len(good_e_id)
