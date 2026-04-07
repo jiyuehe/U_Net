@@ -67,36 +67,38 @@ clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined']
 # simulation_data = np.load(file_path, allow_pickle=True).item()
 # clinical_electrogram = simulation_data['electrogram_unipolar'].T
 
-# compute local activation time
-lat_electrode = np.zeros(clinical_electrogram.shape[0])
-for e_id in range(clinical_electrogram.shape[0]):
-    egm = clinical_electrogram[e_id,:]
+lat_electrode = geometry_data['activation_uni'].astype(float)
+lat_electrode[lat_electrode == 0] = np.nan
 
-    # find peaks in the -dv/dt
-    derivative_uni = -np.diff(egm, prepend=egm[0])
+# # compute local activation time
+# for e_id in range(clinical_electrogram.shape[0]):
+#     egm = clinical_electrogram[e_id,:]
 
-    signal_abs = np.abs(derivative_uni)
-    med = np.median(signal_abs) # median
-    mad = np.median(np.abs(signal_abs - med)) + 1e-12 # mad: median absolute deviation
-    peak_height_threshold = med + 4.0 * mad
-    peaks_egm_uni, _ = find_peaks(derivative_uni, height=peak_height_threshold, distance=80)
+#     # find peaks in the -dv/dt
+#     derivative_uni = -np.diff(egm, prepend=egm[0])
 
-    if len(peaks_egm_uni) != 0:
-        lat_electrode[e_id] = peaks_egm_uni[0]
-    elif len(peaks_egm_uni) == 0:
-        lat_electrode[e_id] = np.nan
+#     signal_abs = np.abs(derivative_uni)
+#     med = np.median(signal_abs) # median
+#     mad = np.median(np.abs(signal_abs - med)) + 1e-12 # mad: median absolute deviation
+#     peak_height_threshold = med + 4.0 * mad
+#     peaks_egm_uni, _ = find_peaks(derivative_uni, height=peak_height_threshold, distance=80)
 
-    debug_plot = 0
-    if debug_plot == 1:
-        plt.figure()
-        plt.plot(derivative_uni, label='-dv/dt')
-        plt.plot(egm, label='egm')
-        plt.axhline(peak_height_threshold, color='green', linestyle='--', label='threshold')
-        plt.scatter(peaks_egm_uni, egm[peaks_egm_uni], color='red', label='peaks')
-        plt.legend()
-        plt.title(f'Electrode {e_id}, LAT: {lat_electrode[e_id]}')
+#     if len(peaks_egm_uni) != 0:
+#         lat_electrode[e_id] = peaks_egm_uni[0]
+#     elif len(peaks_egm_uni) == 0:
+#         lat_electrode[e_id] = np.nan
 
-        plt.show()
+#     debug_plot = 0
+#     if debug_plot == 1:
+#         plt.figure()
+#         plt.plot(derivative_uni, label='-dv/dt')
+#         plt.plot(egm, label='egm')
+#         plt.axhline(peak_height_threshold, color='green', linestyle='--', label='threshold')
+#         plt.scatter(peaks_egm_uni, egm[peaks_egm_uni], color='red', label='peaks')
+#         plt.legend()
+#         plt.title(f'Electrode {e_id}, LAT: {lat_electrode[e_id]}')
+
+#         plt.show()
 
 #%%
 '''# interpolate electrode data to node
