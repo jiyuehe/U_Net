@@ -40,11 +40,11 @@ parameters['epochs'] = 500 # maximum epochs (training may stop earlier with earl
 parameters['early_stopping_patience'] = 10 # stop training if no improvement for this many epochs
 
 # data parameters
-parameters['data_flag'] = 1 # 0: action potential; 1: electrogram
+parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
 # mode settings
-train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
