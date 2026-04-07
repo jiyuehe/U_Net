@@ -37,7 +37,7 @@ parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * param
 parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 500 # maximum epochs (training may stop earlier with early stopping)
-parameters['early_stopping_patience'] = 10 # stop training if no improvement for this many epochs
+parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # data parameters
 parameters['data_flag'] = 1 # 0: action potential; 1: electrogram
