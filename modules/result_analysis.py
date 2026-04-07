@@ -55,9 +55,9 @@ def scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, 
         dpi = fig.dpi
         points_per_mm = dpi / 25.4
         if sparse_electrode_flag == 0:
-            node_size = points_per_mm ** 2 * 2
+            node_size = points_per_mm ** 2 * 2 * 2
         elif sparse_electrode_flag == 1:
-            node_size = points_per_mm ** 2
+            node_size = points_per_mm ** 2 * 2
 
         ax.scatter(node[non_e_id, 0], node[non_e_id, 1], node[non_e_id, 2], c='grey', s=1, edgecolor='none', linewidth=0, alpha=0.3)
         ax.scatter(node[e_id, 0], node[e_id, 1], node[e_id, 2], c=converted_color[e_id,:], edgecolor='none', linewidth=0, marker='s', s=node_size, depthshade=True)
@@ -133,7 +133,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
             ax = plt.axes(projection='3d')
             scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
             common.set_axes_equal.execute(ax)
-            ax.view_init(elev=175, azim=-90)
+            ax.view_init(elev=70, azim=-70)
         # ax.set_xlabel('X')
         # ax.set_ylabel('Y')
         # ax.set_zlabel('Z')
@@ -180,7 +180,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
                 ax = plt.axes(projection='3d')
                 scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
                 common.set_axes_equal.execute(ax)
-                ax.view_init(elev=175, azim=-90)
+                ax.view_init(elev=70, azim=-70)
             plt.axis('off')
             plt.tight_layout()
 
@@ -202,7 +202,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
                 ax = plt.axes(projection='3d')
                 scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
                 common.set_axes_equal.execute(ax)
-                ax.view_init(elev=175, azim=-90)
+                ax.view_init(elev=70, azim=-70)
             plt.axis('off')
             plt.tight_layout()
 

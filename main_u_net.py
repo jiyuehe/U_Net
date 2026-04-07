@@ -30,21 +30,21 @@ parameters = {}
 # time samples
 parameters['t_start'] = 0
 parameters['time_step'] = 1
-parameters['n_timepoints'] = 300
+parameters['n_timepoints'] = 1000
 parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * parameters['time_step']
 
 # training parameters
 parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 500 # maximum epochs (training may stop earlier with early stopping)
-parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
+parameters['early_stopping_patience'] = 10 # stop training if no improvement for this many epochs
 
 # data parameters
 parameters['data_flag'] = 1 # 0: action potential; 1: electrogram
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
 # mode settings
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
@@ -79,14 +79,17 @@ data = np.load(map_file_name, allow_pickle=True)
 map_data = {k: data[k] for k in data.files}
 
 # find the good electrode nodes that have good signals
-vertex_id_for_electrode_3mm = map_data['vertex_id_for_electrode_3mm']
+voxel3mm_id_for_electrode = map_data['voxel3mm_id_for_electrode']
 act = map_data['clinical_activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
-good_e_id = vertex_id_for_electrode_3mm[good_id]
-voxel_id_of_vertex3mm = map_data['voxel_id_of_vertex3mm']
-good_voxel_id = voxel_id_of_vertex3mm[good_e_id]
+good_e_id = voxel3mm_id_for_electrode[good_id]
+voxel_id_of_voxel3mm = map_data['voxel_id_of_voxel3mm']
+# good_voxel_id = voxel_id_of_voxel3mm[good_e_id]
 
-parameters['node'] = map_data['voxel'][voxel_id_of_vertex3mm,:]
+voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
+voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
+
+parameters['node'] = voxel3mm_1mm_spacing
 n_nodes = parameters['node'].shape[0]
 
 n_electrode = len(good_e_id)
