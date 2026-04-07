@@ -37,14 +37,14 @@ parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * param
 parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 500 # maximum epochs (training may stop earlier with early stopping)
-parameters['early_stopping_patience'] = 10 # stop training if no improvement for this many epochs
+parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # data parameters
 parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
 # mode settings
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
@@ -57,7 +57,7 @@ if parameters['geometry_flag'] == 0:
 elif parameters['geometry_flag'] == 1:
    name_prefix = '103_1-lagood'
 
-   map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map.npz'
+   map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map_refined.npz'
    data_folder_name = '103_1-lagood_3mm'
    parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
@@ -80,7 +80,7 @@ map_data = {k: data[k] for k in data.files}
 
 # find the good electrode nodes that have good signals
 voxel3mm_id_for_electrode = map_data['voxel3mm_id_for_electrode']
-act = map_data['clinical_activation_uni']
+act = map_data['activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
 good_e_id = voxel3mm_id_for_electrode[good_id]
 voxel_id_of_voxel3mm = map_data['voxel_id_of_voxel3mm']
@@ -205,7 +205,7 @@ if train_flag == 0:
 
    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
-   testing_data_flag = 0 # 0: simulation data; 1: clinical data
+   testing_data_flag = 1 # 0: simulation data; 1: clinical data
    if testing_data_flag == 0:
       predicted_data, truth_data = modules.train_predict.predict(parameters)
    elif testing_data_flag == 1:
@@ -232,14 +232,15 @@ if train_flag == 0:
             x_temp = []
             for i in range(start_idx, end_idx):
                ##########
-               electrogram_unipolar = map_data['clinical_electrogram_unipolar_woi'].T # shape (t, n_nodes)
+               electrogram_unipolar = map_data['clinical_electrogram_unipolar_refined'].T # shape (t, n_nodes)
                # electrogram_unipolar = simulation_egm
                electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
                
-               x = np.zeros((300, n_node)) # assign all nodes zero signal
+               x = np.zeros((1000, n_node)) # assign all nodes zero signal
 
                ##########
-               x[:, e_id] = electrogram_unipolar # assign electrode nodes the electrogram signal
+               e_id = map_data['voxel3mm_id_for_electrode']
+               x[:, e_id] = electrogram_unipolar[2000-500:2000+500, :] # assign electrode nodes the electrogram signal
                # x[:, e_id] = simulation_egm[:, e_id]
                
                x_temp.append(x)

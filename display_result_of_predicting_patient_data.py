@@ -29,16 +29,14 @@ from scipy.signal import find_peaks
 # load prediction results
 result_folder = script_dir / 'result'
 
-# name_prefix = '6-1-1-1-LA PACING CL 300 FROM CS 13 14'
-# name_prefix = '6-1-1-LA PACING CL 270 FROM CS3 4'
-name_prefix = '6-1-LA PACING CS 11 12 300CL'
+name_prefix = '103_1-lagood'
 
 predicted_data = np.load(result_folder / f'predictions_{name_prefix}.npy')
 
-geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed.npz'
+geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map_refined.npz'
 data = np.load(geometry_file_name, allow_pickle=True)
 geometry_data = {k: data[k] for k in data.files}
-nodes = geometry_data['voxel']  # shape (n_node, 3)
+nodes = geometry_data['voxel3mm_1mm_spacing']  # shape (n_node, 3)
 
 #%%
 # predicted data for rhythm 0
@@ -51,7 +49,7 @@ data_max_pred = np.nanmax(data_predicted)
 data_threshold_pred = data_min_pred-0.1
 converted_color_pred = common.convert_data_to_color.execute(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
 
-# Prepare predicted data for rhythm 1
+# prepare predicted data for rhythm 1
 rhythm_id_1 = 1
 data_predicted_1 = predicted_data[sample_id][rhythm_id_1,:]
 
@@ -63,7 +61,7 @@ converted_color_pred_1 = common.convert_data_to_color.execute(data_predicted_1, 
 #%%
 # process the mix rhythm map
 ##########
-clinical_electrogram = geometry_data['clinical_electrogram_unipolar_woi']
+clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined']
 
 # file_path = script_dir.parent / '0_data' / 'simulation_results_6890_20931.npy'
 # simulation_data = np.load(file_path, allow_pickle=True).item()
@@ -130,10 +128,10 @@ lat_node_full[nodes_id_within_distance] = lat_node
 # prepare electrode data
 ##########
 data_electrode = lat_electrode
-electrode_node_id = geometry_data['electrode_node_id']
+electrode_node_id = geometry_data['voxel3mm_id_for_electrode']
 # data_electrode = lat_electrode[electrode_node_id]
 
-# Filter out NaN values
+# filter out NaN values
 valid_mask = ~np.isnan(data_electrode)
 data_electrode_valid = data_electrode[valid_mask]
 electrode_node_id_valid = electrode_node_id[valid_mask]
@@ -143,8 +141,7 @@ data_max_electrode = np.nanmax(data_electrode_valid)
 data_threshold_electrode = data_min_electrode-0.01
 converted_color_electrode = common.convert_data_to_color.execute(data_electrode_valid, data_min_electrode, data_max_electrode, data_threshold_electrode)
 
-
-electrode_node = geometry_data['electrode_positions'][valid_mask,:] # node[electrode_node_id_valid,:]
+electrode_node = geometry_data['voxel3mm_1mm_spacing'][electrode_node_id,:][valid_mask,:]
 
 '''
 # prepare node data
@@ -156,7 +153,7 @@ data_threshold_node = data_min_node-0.01
 converted_color_node = common.convert_data_to_color.execute(data_node, data_min_node, data_max_node, data_threshold_node)
 '''
 #%%
-# Create combined figure with 3 subplots
+# create combined figure with 3 subplots
 fig = make_subplots(
     rows=1, cols=3,
     specs=[[{'type': 'scatter3d'}, {'type': 'scatter3d'}, {'type': 'scatter3d'}]],
@@ -164,7 +161,7 @@ fig = make_subplots(
     horizontal_spacing=0.005
 )
 
-# Add geometry nodes
+# add geometry nodes
 scatter_nodes = go.Scatter3d(
     x=nodes[:, 0],
     y=nodes[:, 1],
@@ -180,7 +177,7 @@ scatter_nodes = go.Scatter3d(
 )
 fig.add_trace(scatter_nodes, row=1, col=1)
 
-# Add electrode data scatter
+# add electrode data scatter
 scatter_electrode = go.Scatter3d(
     x=electrode_node[:, 0],
     y=electrode_node[:, 1],
@@ -196,7 +193,7 @@ scatter_electrode = go.Scatter3d(
 )
 fig.add_trace(scatter_electrode, row=1, col=1)
 
-# Add predicted data scatter
+# add predicted data scatter
 scatter_pred = go.Scatter3d(
     x=nodes[:, 0],
     y=nodes[:, 1],
@@ -212,7 +209,7 @@ scatter_pred = go.Scatter3d(
 )
 fig.add_trace(scatter_pred, row=1, col=2)
 
-# Add predicted data for rhythm_id=1
+# add predicted data for rhythm_id=1
 scatter_pred_1 = go.Scatter3d(
     x=nodes[:, 0],
     y=nodes[:, 1],
@@ -228,12 +225,12 @@ scatter_pred_1 = go.Scatter3d(
 )
 fig.add_trace(scatter_pred_1, row=1, col=3)
 
-# Set common camera view for synchronized rotation
+# set common camera view for synchronized rotation
 camera = dict(
     eye=dict(x=1.5, y=1.5, z=1.5)
 )
 
-# Update layout with synchronized camera and scene settings
+# update layout with synchronized camera and scene settings
 fig.update_layout(
     scene=dict(
         xaxis=dict(showgrid=False, visible=False),
@@ -259,10 +256,10 @@ fig.update_layout(
     margin=dict(l=0, r=0, b=0, t=30, pad=0)
 )
 
-# Save to HTML with custom JavaScript for camera synchronization
+# save to HTML with custom JavaScript for camera synchronization
 html_string = fig.to_html(include_plotlyjs='cdn')
 
-# Add JavaScript to synchronize camera movements across all three scenes
+# add JavaScript to synchronize camera movements across all three scenes
 sync_js = """
 <script>
 var plot = document.getElementsByClassName('plotly-graph-div')[0];
@@ -308,10 +305,10 @@ plot.on('plotly_relayout', syncCamera);
 </script>
 """
 
-# Insert the JavaScript before closing body tag
+# insert the JavaScript before closing body tag
 html_string = html_string.replace('</body>', sync_js + '</body>')
 
-# Write to file and open in browser
+# write to file and open in browser
 import tempfile
 import webbrowser
 with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
