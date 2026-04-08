@@ -23,11 +23,11 @@ for folder_name in ['train', 'validation', 'test']:
             shutil.move(str(f), str(data_folder / f.name))
 
 #%%
-# grab file names of simulation_results_*_*.npz and extract s1, s2 from filenames
-npy_files = list(data_folder.glob('simulation_results_*_*.npz'))
+# grab file names of simulation_results_*_*.npz and extract s1, s2 values
+simulation_results_file_names = list(data_folder.glob('simulation_results_*_*.npz'))
 s1 = []
 s2 = []
-for f in npy_files:
+for f in simulation_results_file_names:
     # filename format: simulation_results_{s1}_{s2}.npz
     stem = f.stem # e.g., 'simulation_results_123_456'
     parts = stem.replace('simulation_results_', '').split('_')
