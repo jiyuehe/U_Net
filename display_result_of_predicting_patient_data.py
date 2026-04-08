@@ -50,8 +50,7 @@ data_threshold_pred = data_min_pred-0.1
 converted_color_pred = common.convert_data_to_color.execute(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
 
 # prepare predicted data for rhythm 1
-rhythm_id_1 = 1
-data_predicted_1 = predicted_data[sample_id][rhythm_id_1,:]
+data_predicted_1 = predicted_data[sample_id].flatten()
 
 data_min_pred_1 = np.nanmin(data_predicted_1)
 data_max_pred_1 = np.nanmax(data_predicted_1)

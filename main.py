@@ -42,8 +42,10 @@ parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
 # mode settings
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
+testing_data_flag = 0 # 0: simulation data; 1: clinical data
+data_type = '1focal' # '1focal' or '2focal'
 
 # geometry
 if parameters['geometry_flag'] == 0:
@@ -204,7 +206,6 @@ if train_flag == 0:
 
    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
-   testing_data_flag = 1 # 0: simulation data; 1: clinical data
    if testing_data_flag == 0:
       predicted_data, truth_data = modules.train_predict.predict(parameters)
    elif testing_data_flag == 1:
@@ -309,16 +310,19 @@ if train_flag == 0:
       start_idx = 0
       end_idx = len(parameters['s1_test'])
 
-      # plot full mix rhythm data
-      sparse_electrode_flag = 0 # 1: use sparse electrode nodes; 0: use all nodes
-      modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
+      if data_type == '2focal':
+         # plot full mix rhythm data
+         sparse_electrode_flag = 0 # 1: use sparse electrode nodes; 0: use all nodes
+         modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
 
-      # plot sparse electrode nodes mix rhythm data
-      sparse_electrode_flag = 1 # 1: use sparse electrode nodes; 0: use all nodes
-      modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
+         # plot sparse electrode nodes mix rhythm data
+         sparse_electrode_flag = 1 # 1: use sparse electrode nodes; 0: use all nodes
+         modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
 
-      # plot truth and predicted activation time map
-      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+         # plot truth and predicted activation time map
+         modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+      elif data_type == '1focal':
+         modules.result_analysis_1focal.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 
 print('done')
 

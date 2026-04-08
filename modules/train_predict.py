@@ -291,8 +291,12 @@ def predict(parameters):
                         prediction[b, :, n] = prediction_dense[b, :, x, y, z]
                 prediction = torch.tensor(prediction)
 
-                # reshape output data: (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel) 
-                truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
+                # reshape output data: (batch, n_node) -> (batch * n_node, 1)
+                # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
+                if output_data.dim() == 2:
+                    truth = output_data.reshape(-1, 1)
+                else:
+                    truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
                 # reshape truth to (current_batch_size, n_out_channel, n_nodes)
                 truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
                 truth = truth.cpu()
