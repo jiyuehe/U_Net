@@ -16,9 +16,11 @@ import modules
 
 import torch
 import numpy as np
+%matplotlib tk # make the Matplotlib plot pop up in a window instead of inline in the Jupyter notebook when debugging; change to %matplotlib inline if want to show plots in the notebook
 import matplotlib.pyplot as plt 
 from torchview import draw_graph # for visualizing the neural network model architecture
 
+# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 – registers 3D projections
 # import plotly.graph_objects as go
 # import plotly.io as pio
 # pio.renderers.default = 'browser'
@@ -62,12 +64,6 @@ elif parameters['geometry_flag'] == 1:
    parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
-elif parameters['geometry_flag'] == 4:
-   map_file_name = script_dir.parent / '0_data' / 'hollow_slab.npy'
-   data_folder_name = '3d data, 2 focal 2 location 15ms apart'
-   parameters['result_folder'] = script_dir / 'result_3d'
-   parameters['grid_height'] = [] # unused; for code compatibility
-   parameters['grid_width'] = [] # unused; for code compatibility
 
 #%%
 if parameters['geometry_flag'] in [1, 4]:
@@ -100,31 +96,16 @@ parameters['non_e_id'] = np.setdiff1d(np.arange(n_nodes), parameters['e_id'])
 
 debug_plot = 0
 if debug_plot == 1:
+   # use Matplotlib here because I did not and do not want to install plotly in the MinkowskiEngine docker container 
    node = parameters['node']
 
-   fig = go.Figure()
-   fig.add_trace(go.Scatter3d(
-      x=node[:, 0], y=node[:, 1], z=node[:, 2],
-      mode='markers',
-      marker=dict(size=1, color='black', opacity=0.7),
-      showlegend=False
-   ))
-   fig.add_trace(go.Scatter3d(
-      x=node[good_e_id, 0], y=node[good_e_id, 1], z=node[good_e_id, 2],
-      mode='markers',
-      marker=dict(size=3, color='blue'),
-      showlegend=False
-   ))
-   fig.update_layout(
-      scene=dict(
-         camera=dict(eye=dict(x=0, y=0, z=2.5)),
-         xaxis=dict(visible=False),
-         yaxis=dict(visible=False),
-         zaxis=dict(visible=False),
-      ),
-      margin=dict(l=0, r=0, t=0, b=0),
-   )
-   fig.show()
+   fig = plt.figure()
+   ax = fig.add_subplot(111, projection='3d')
+   ax.scatter(node[:, 0], node[:, 1], node[:, 2], s=1, c='gray', alpha=0.7)
+   ax.scatter(node[good_e_id, 0], node[good_e_id, 1], node[good_e_id, 2], s=9, c='blue')
+   ax.set_axis_off()
+   plt.tight_layout()
+   plt.show()
 
 #%%
 # load the index file
