@@ -310,12 +310,10 @@ plot.on('plotly_relayout', syncCamera);
 # insert the JavaScript before closing body tag
 html_string = html_string.replace('</body>', sync_js + '</body>')
 
-# write to file and open in browser
-import tempfile
-import webbrowser
-with tempfile.NamedTemporaryFile('w', delete=False, suffix='.html') as f:
+# write to file
+output_path = result_folder / 'output.html'
+with open(output_path, 'w') as f:
     f.write(html_string)
-    temp_path = f.name
-
-webbrowser.open('file://' + temp_path)
-print(f"Plot opened in browser with synchronized camera views: {temp_path}")
+print(f"Plot saved to: {output_path}")
+print("Run: python -m http.server 8080 --directory result")
+print("Then open http://localhost:8080/output.html in your browser")
