@@ -16,14 +16,10 @@ import modules
 
 import torch
 import numpy as np
-%matplotlib tk # make the Matplotlib plot pop up in a window instead of inline in the Jupyter notebook when debugging; change to %matplotlib inline if want to show plots in the notebook
+#%matplotlib tk 
+# make the Matplotlib plot pop up in a window instead of inline in the Jupyter notebook when debugging; change to %matplotlib inline if want to show plots in the notebook
 import matplotlib.pyplot as plt 
 from torchview import draw_graph # for visualizing the neural network model architecture
-
-# from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 – registers 3D projections
-# import plotly.graph_objects as go
-# import plotly.io as pio
-# pio.renderers.default = 'browser'
 
 #%%
 # parameters
@@ -60,14 +56,18 @@ elif parameters['geometry_flag'] == 1:
    name_prefix = '103_1-lagood'
 
    map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map_refined.npz'
-   data_folder_name = '103_1-lagood_3mm'
+   data_folder_name = '103_1-lagood_3mm_1focal'
    parameters['result_folder'] = script_dir / 'result'
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
 
 #%%
 if parameters['geometry_flag'] in [1, 4]:
-   import MinkowskiEngine as ME # https://nvidia.github.io/MinkowskiEngine/overview.html
+   try:
+      import MinkowskiEngine as ME # https://nvidia.github.io/MinkowskiEngine/overview.html
+   except ImportError:
+      print('MinkowskiEngine is not installed.')
+      pass
 
 #%%
 # load geometry
@@ -120,7 +120,11 @@ parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cp
 if parameters['geometry_flag'] == 0:
    parameters['model'] = modules.unet.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
 elif parameters['geometry_flag'] in [1, 4]:
-   parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=1,D=3).to(parameters['device']) # D is the dimension of the input data
+   try: 
+      parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=1,D=3).to(parameters['device']) # D is the dimension of the input data
+   except Exception as e:
+      print('MinkowskiEngine is not installed.')
+      pass
 
 debug_flag = 0
 if debug_flag == 1:
@@ -147,18 +151,33 @@ if debug_flag == 1:
       # use print to show model architecture instead
       print(parameters['model'])
 
+#%%
 # load data file index
-# load training data file index
-n_files_to_use = -1 # -1: use all files; or specify a number
-parameters['s1_train'], parameters['s2_train'] = modules.load_data.file_index(parameters['data_folder'] / 'train', n_files_to_use)
+data_type = '1focal' # '1focal' or '2focal'
+if data_type == '1focal':
+   # load training data file index
+   n_files_to_use = -1 # -1: use all files; or specify a number
+   parameters['s1_train'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'train', n_files_to_use)
 
-# load validation data file index
-n_files_to_use = -1 # -1: use all files; or specify a number
-parameters['s1_validation'], parameters['s2_validation'] = modules.load_data.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
+   # load validation data file index
+   n_files_to_use = -1 # -1: use all files; or specify a number
+   parameters['s1_validation'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
 
-# load test data file index
-n_files_to_use = 10 # -1: use all files; or specify a number
-parameters['s1_test'], parameters['s2_test'] = modules.load_data.file_index(parameters['data_folder'] / 'test', n_files_to_use)
+   # load test data file index
+   n_files_to_use = 10 # -1: use all files; or specify a number
+   parameters['s1_test'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'test', n_files_to_use)
+elif data_type == '2focal':
+   # load training data file index
+   n_files_to_use = -1 # -1: use all files; or specify a number
+   parameters['s1_train'], parameters['s2_train'] = modules.load_data.file_index(parameters['data_folder'] / 'train', n_files_to_use)
+
+   # load validation data file index
+   n_files_to_use = -1 # -1: use all files; or specify a number
+   parameters['s1_validation'], parameters['s2_validation'] = modules.load_data.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
+
+   # load test data file index
+   n_files_to_use = 10 # -1: use all files; or specify a number
+   parameters['s1_test'], parameters['s2_test'] = modules.load_data.file_index(parameters['data_folder'] / 'test', n_files_to_use)
 
 print(f'n_train: {len(parameters["s1_train"])}, n_validation: {len(parameters["s1_validation"])}, n_test: {len(parameters["s1_test"])}')
 

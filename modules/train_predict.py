@@ -44,8 +44,12 @@ def garther_Minkowski_input(input_data, output_data, node, device):
     # reshape input data: (batch, t, nodes) -> (batch * nodes, t)
     feats_batch = input_data.permute(0, 2, 1).reshape(-1, input_data.shape[1])
     
-    # reshape output data: (batch, 2, nodes) -> (batch * nodes, 2)
-    targets_batch = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
+    # reshape output data: (batch, n_node) -> (batch * n_node, 1)
+    # or (batch, n_out_channel, n_node) -> (batch * n_node, n_out_channel)
+    if output_data.dim() == 2:
+        targets_batch = output_data.reshape(-1, 1)
+    else:
+        targets_batch = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
 
     # create MinkowskiEngine sparse tensor
     neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=device)
@@ -81,6 +85,8 @@ def train_model(parameters):
     loss_file = open(parameters['result_folder'] / 'loss_history.txt', 'w')
     loss_file.write('train_loss\tval_loss\n')
 
+    data_type = '1focal' # '1focal' or '2focal'
+
     for epoch in range(parameters['epochs']):
         print(f'Epoch {epoch+1}')
         epoch_start_time = time.time()
@@ -88,7 +94,8 @@ def train_model(parameters):
         # shuffle training indices at the start of each epoch
         perm = np.random.permutation(n_train_samples)
         s1_train_shuffled = parameters['s1_train'][perm]
-        s2_train_shuffled = parameters['s2_train'][perm]
+        if data_type == '2focal':
+            s2_train_shuffled = parameters['s2_train'][perm]
         
         # training phase
         # ------------------------------
@@ -102,7 +109,12 @@ def train_model(parameters):
             # load batch data
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
-            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, s2_train_shuffled, parameters['non_e_id'], parameters)
+
+            if data_type == '2focal':
+                input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, s2_train_shuffled, parameters['non_e_id'], parameters)
+            elif data_type == '1focal':
+                input_data, output_data = modules.load_data_1focal.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, None, parameters['non_e_id'], parameters)
+                # print(output_data.shape)
 
             if parameters['geometry_flag'] == 0: # 0: 2D sheet
                 # reshape input data
@@ -154,7 +166,11 @@ def train_model(parameters):
                 # load batch data
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
-                input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], parameters['s2_validation'], parameters['non_e_id'], parameters)
+
+                if data_type == '2focal':
+                    input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], parameters['s2_validation'], parameters['non_e_id'], parameters)
+                elif data_type == '1focal':
+                    input_data, output_data = modules.load_data_1focal.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], None, parameters['non_e_id'], parameters)
 
                 if parameters['geometry_flag'] == 0: # 0: 2D sheet
                     neural_network_input = input_data.reshape(input_data.shape[0], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width']) # (batch, t, nodes) -> (batch, t, grid_height, grid_width)
@@ -220,6 +236,9 @@ def train_model(parameters):
     return train_loss_history, val_loss_history
 
 def predict(parameters):
+    data_type = '1focal' # '1focal' or '2focal'
+    n_out_channel = 1 # 1: 1 focal, 2: 2 focal
+
     parameters['model'].eval()
 
     n_test_samples = len(parameters['s1_test'])
@@ -235,7 +254,11 @@ def predict(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], parameters['non_e_id'], parameters)
+            if data_type == '2focal':
+                input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], parameters['non_e_id'], parameters)
+            elif data_type == '1focal':
+                input_data, output_data = modules.load_data_1focal.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], None, parameters['non_e_id'], parameters)
+
             if parameters['geometry_flag'] == 0: # 0: 2D sheet
                 # reshape input data
                 neural_network_input = input_data.reshape(input_data.shape[0], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width'])
@@ -248,7 +271,7 @@ def predict(parameters):
             if parameters['geometry_flag'] == 0: # 0: 2D sheet
                 # reshape outputs
                 N = outputs.shape[0]
-                prediction = outputs.reshape(N, 2, parameters['grid_height'] * parameters['grid_width']).cpu()
+                prediction = outputs.reshape(N, n_out_channel, parameters['grid_height'] * parameters['grid_width']).cpu()
                 truth = output_data.cpu()
             elif parameters['geometry_flag'] in [1, 4]: # 1: patient 3D atrium, 4: hollow 3D cube
                 current_batch_size = input_data.shape[0]
@@ -259,19 +282,19 @@ def predict(parameters):
                 
                 # extract predictions at shifted coordinates
                 dense = outputs.dense(min_coordinate=min_coord)
-                prediction_dense = dense[0].cpu()  # shape: (batch, 2, X, Y, Z)
+                prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
                 n_nodes = parameters['node'].shape[0]
                 shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
-                prediction = np.zeros((current_batch_size, 2, n_nodes), dtype=np.float32)
+                prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
                 for b in range(current_batch_size):
                     for n, (x, y, z) in enumerate(shifted_coord):
                         prediction[b, :, n] = prediction_dense[b, :, x, y, z]
                 prediction = torch.tensor(prediction)
 
-                # reshape output data: (batch, 2, nodes) -> (batch * nodes, 2) 
+                # reshape output data: (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel) 
                 truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
-                # reshape truth to (current_batch_size, 2, n_nodes)
-                truth = truth.reshape(current_batch_size, n_nodes, 2).permute(0, 2, 1)
+                # reshape truth to (current_batch_size, n_out_channel, n_nodes)
+                truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
                 truth = truth.cpu()
 
             all_predictions.append(prediction)
