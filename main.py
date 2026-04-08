@@ -44,7 +44,7 @@ parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
 
 # mode settings
-train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 
 # geometry
@@ -84,7 +84,6 @@ act = map_data['activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
 good_e_id = voxel3mm_id_for_electrode[good_id]
 voxel_id_of_voxel3mm = map_data['voxel_id_of_voxel3mm']
-# good_voxel_id = voxel_id_of_voxel3mm[good_e_id]
 
 voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
 voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
@@ -138,9 +137,9 @@ elif parameters['geometry_flag'] in [1, 4]:
 # create the U-Net model
 parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if parameters['geometry_flag'] == 0:
-   parameters['model'] = modules.unet.UNet(parameters['n_timepoints'], 2).to(parameters['device'])
+   parameters['model'] = modules.unet.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
 elif parameters['geometry_flag'] in [1, 4]:
-   parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=2,D=3).to(parameters['device']) # D is the dimension of the input data
+   parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=1,D=3).to(parameters['device']) # D is the dimension of the input data
 
 debug_flag = 0
 if debug_flag == 1:
