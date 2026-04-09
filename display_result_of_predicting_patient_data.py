@@ -49,14 +49,6 @@ data_max_pred = np.nanmax(data_predicted)
 data_threshold_pred = data_min_pred-0.1
 converted_color_pred = common.convert_data_to_color.execute(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
 
-# # prepare predicted data for rhythm 1
-# data_predicted_1 = predicted_data[sample_id].flatten()
-
-# data_min_pred_1 = np.nanmin(data_predicted_1)
-# data_max_pred_1 = np.nanmax(data_predicted_1)
-# data_threshold_pred_1 = data_min_pred_1-0.1
-# converted_color_pred_1 = common.convert_data_to_color.execute(data_predicted_1, data_min_pred_1, data_max_pred_1, data_threshold_pred_1)
-
 #%%
 # process the mix rhythm map
 ##########
@@ -154,77 +146,74 @@ data_threshold_node = data_min_node-0.01
 converted_color_node = common.convert_data_to_color.execute(data_node, data_min_node, data_max_node, data_threshold_node)
 '''
 #%%
+def create_voxel_mesh(centers, colors=None, color=None, opacity=1.0, name='', voxel_size=1.0):
+    """Create a Mesh3d trace of cubes for gap-free voxel visualization."""
+    n = len(centers)
+    s = voxel_size / 2
+    # 8 vertex offsets for a cube
+    offsets = np.array([
+        [-s, -s, -s], [+s, -s, -s], [+s, +s, -s], [-s, +s, -s],
+        [-s, -s, +s], [+s, -s, +s], [+s, +s, +s], [-s, +s, +s],
+    ])
+    # all vertices: (n*8, 3)
+    verts = (centers[:, None, :] + offsets[None, :, :]).reshape(-1, 3)
+    # 12 triangle faces per cube (2 per face, 6 faces)
+    face_i = np.array([0, 0, 4, 4, 3, 3, 0, 0, 0, 0, 1, 1])
+    face_j = np.array([2, 3, 5, 6, 6, 7, 1, 5, 4, 7, 2, 6])
+    face_k = np.array([1, 2, 6, 7, 2, 6, 5, 4, 7, 3, 6, 5])
+    # offset face indices for each cube
+    cube_offsets = (np.arange(n) * 8).reshape(-1, 1)  # (n, 1)
+    all_i = (face_i[None, :] + cube_offsets).ravel()
+    all_j = (face_j[None, :] + cube_offsets).ravel()
+    all_k = (face_k[None, :] + cube_offsets).ravel()
+    # face colors: repeat each voxel's color 12 times
+    if colors is not None:
+        # colors is (n, 3) RGB float array → convert to rgb strings, repeat per face
+        rgb_strings = ['rgb({},{},{})'.format(int(r*255), int(g*255), int(b*255)) for r, g, b in colors]
+        facecolor = np.repeat(rgb_strings, 12).tolist()
+    else:
+        facecolor = None
+    mesh = go.Mesh3d(
+        x=verts[:, 0], y=verts[:, 1], z=verts[:, 2],
+        i=all_i, j=all_j, k=all_k,
+        facecolor=facecolor,
+        color=color,
+        opacity=opacity,
+        flatshading=True,
+        name=name,
+        lighting=dict(ambient=0.5, diffuse=0.8, specular=0.2, roughness=0.5, fresnel=0.1),
+        lightposition=dict(x=100, y=200, z=300),
+    )
+    return mesh
+
+#%%
 # create combined figure with 2 subplots
 fig = make_subplots(
     rows=1, cols=2,
-    specs=[[{'type': 'scatter3d'}, {'type': 'scatter3d'}]],
+    specs=[[{'type': 'scene'}, {'type': 'scene'}]],
     subplot_titles=('Clinical Map', 'Prediction'),
     horizontal_spacing=0.005
 )
 
-# add geometry nodes
-scatter_nodes = go.Scatter3d(
-    x=nodes[:, 0],
-    y=nodes[:, 1],
-    z=nodes[:, 2],
-    mode='markers',
-    marker=dict(
-        size=1,
-        color='lightgray',
-        opacity=0.5,
-        symbol='square'
-    ),
-    name='Electrode'
-)
-fig.add_trace(scatter_nodes, row=1, col=1)
+# separate non-electrode nodes (gray) from electrode nodes to avoid overlap
+non_electrode_mask = np.ones(len(nodes), dtype=bool)
+non_electrode_mask[electrode_node_id_valid] = False
+non_electrode_nodes = nodes[non_electrode_mask]
 
-# add electrode data scatter
-scatter_electrode = go.Scatter3d(
-    x=electrode_node[:, 0],
-    y=electrode_node[:, 1],
-    z=electrode_node[:, 2],
-    mode='markers',
-    marker=dict(
-        size=3,
-        color=converted_color_electrode,
-        opacity=1,
-        symbol='square'
-    ),
-    name='Electrode'
-)
-fig.add_trace(scatter_electrode, row=1, col=1)
+# add gray geometry voxels (non-electrode positions only)
+fig.add_trace(create_voxel_mesh(
+    non_electrode_nodes, color='lightgray', opacity=0, name='Geometry'
+), row=1, col=1)
 
-# add predicted data scatter
-scatter_pred = go.Scatter3d(
-    x=nodes[:, 0],
-    y=nodes[:, 1],
-    z=nodes[:, 2],
-    mode='markers',
-    marker=dict(
-        size=3,
-        color=converted_color_pred,
-        opacity=1,
-        symbol='square'
-    ),
-    name='Predicted'
-)
-fig.add_trace(scatter_pred, row=1, col=2)
+# add electrode data voxels
+fig.add_trace(create_voxel_mesh(
+    electrode_node, colors=converted_color_electrode, name='Electrode'
+), row=1, col=1)
 
-# # add predicted data for rhythm_id=1
-# scatter_pred_1 = go.Scatter3d(
-#     x=nodes[:, 0],
-#     y=nodes[:, 1],
-#     z=nodes[:, 2],
-#     mode='markers',
-#     marker=dict(
-#         size=3,
-#         color=converted_color_pred_1,
-#         opacity=1,
-#         symbol='square'
-#     ),
-#     name='Predicted 1'
-# )
-# fig.add_trace(scatter_pred_1, row=1, col=3)
+# add predicted data voxels
+fig.add_trace(create_voxel_mesh(
+    nodes, colors=converted_color_pred, name='Predicted'
+), row=1, col=2)
 
 # set common camera view for synchronized rotation
 camera = dict(
@@ -245,34 +234,20 @@ fig.update_layout(
         zaxis=dict(showgrid=False, visible=False),
         camera=camera
     ),
-    # scene3=dict(
-    #     xaxis=dict(showgrid=False, visible=False),
-    #     yaxis=dict(showgrid=False, visible=False),
-    #     zaxis=dict(showgrid=False, visible=False),
-    #     camera=camera
-    # ),
     height=600,
     width=1200,
     showlegend=False,
     margin=dict(l=0, r=0, b=0, t=30, pad=0)
 )
 
-# save to HTML with custom JavaScript for camera synchronization
-html_string = fig.to_html(include_plotlyjs='cdn')
-
-# add JavaScript to synchronize camera movements across all three scenes
+# camera sync JavaScript
 sync_js = """
-<script>
 var plot = document.getElementsByClassName('plotly-graph-div')[0];
 var isUpdating = false;
-
 function syncCamera(eventdata) {
     if (isUpdating) return;
-    
     var cameraUpdate = {};
     var needsUpdate = false;
-    
-    // Check which scene was updated
     if (eventdata['scene.camera']) {
         cameraUpdate['scene.camera'] = eventdata['scene.camera'];
         cameraUpdate['scene2.camera'] = eventdata['scene.camera'];
@@ -282,30 +257,14 @@ function syncCamera(eventdata) {
         cameraUpdate['scene2.camera'] = eventdata['scene2.camera'];
         needsUpdate = true;
     }
-    
     if (needsUpdate) {
         isUpdating = true;
         Plotly.relayout(plot, cameraUpdate);
-        setTimeout(function() {
-            isUpdating = false;
-        }, 0);
+        setTimeout(function() { isUpdating = false; }, 0);
     }
 }
-
-// Listen to continuous updates while dragging
 plot.on('plotly_relayouting', syncCamera);
-// Also listen to final update when mouse is released
 plot.on('plotly_relayout', syncCamera);
-</script>
 """
 
-# insert the JavaScript before closing body tag
-html_string = html_string.replace('</body>', sync_js + '</body>')
-
-# write to file
-output_path = result_folder / 'index.html'
-with open(output_path, 'w') as f:
-    f.write(html_string)
-print(f"Plot saved to: {output_path}")
-print("Run: python -m http.server 8080 --directory result")
-print("Then open http://localhost:8080/index.html in your browser")
+fig.show(renderer='browser', post_script=[sync_js])
