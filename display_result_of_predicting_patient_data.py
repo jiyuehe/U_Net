@@ -49,13 +49,13 @@ data_max_pred = np.nanmax(data_predicted)
 data_threshold_pred = data_min_pred-0.1
 converted_color_pred = common.convert_data_to_color.execute(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
 
-# prepare predicted data for rhythm 1
-data_predicted_1 = predicted_data[sample_id].flatten()
+# # prepare predicted data for rhythm 1
+# data_predicted_1 = predicted_data[sample_id].flatten()
 
-data_min_pred_1 = np.nanmin(data_predicted_1)
-data_max_pred_1 = np.nanmax(data_predicted_1)
-data_threshold_pred_1 = data_min_pred_1-0.1
-converted_color_pred_1 = common.convert_data_to_color.execute(data_predicted_1, data_min_pred_1, data_max_pred_1, data_threshold_pred_1)
+# data_min_pred_1 = np.nanmin(data_predicted_1)
+# data_max_pred_1 = np.nanmax(data_predicted_1)
+# data_threshold_pred_1 = data_min_pred_1-0.1
+# converted_color_pred_1 = common.convert_data_to_color.execute(data_predicted_1, data_min_pred_1, data_max_pred_1, data_threshold_pred_1)
 
 #%%
 # process the mix rhythm map
@@ -154,11 +154,11 @@ data_threshold_node = data_min_node-0.01
 converted_color_node = common.convert_data_to_color.execute(data_node, data_min_node, data_max_node, data_threshold_node)
 '''
 #%%
-# create combined figure with 3 subplots
+# create combined figure with 2 subplots
 fig = make_subplots(
-    rows=1, cols=3,
-    specs=[[{'type': 'scatter3d'}, {'type': 'scatter3d'}, {'type': 'scatter3d'}]],
-    subplot_titles=('Clinical Map', 'Predicted Rhythm 0', 'Predicted Rhythm 1'),
+    rows=1, cols=2,
+    specs=[[{'type': 'scatter3d'}, {'type': 'scatter3d'}]],
+    subplot_titles=('Clinical Map', 'Prediction'),
     horizontal_spacing=0.005
 )
 
@@ -210,21 +210,21 @@ scatter_pred = go.Scatter3d(
 )
 fig.add_trace(scatter_pred, row=1, col=2)
 
-# add predicted data for rhythm_id=1
-scatter_pred_1 = go.Scatter3d(
-    x=nodes[:, 0],
-    y=nodes[:, 1],
-    z=nodes[:, 2],
-    mode='markers',
-    marker=dict(
-        size=3,
-        color=converted_color_pred_1,
-        opacity=1,
-        symbol='square'
-    ),
-    name='Predicted 1'
-)
-fig.add_trace(scatter_pred_1, row=1, col=3)
+# # add predicted data for rhythm_id=1
+# scatter_pred_1 = go.Scatter3d(
+#     x=nodes[:, 0],
+#     y=nodes[:, 1],
+#     z=nodes[:, 2],
+#     mode='markers',
+#     marker=dict(
+#         size=3,
+#         color=converted_color_pred_1,
+#         opacity=1,
+#         symbol='square'
+#     ),
+#     name='Predicted 1'
+# )
+# fig.add_trace(scatter_pred_1, row=1, col=3)
 
 # set common camera view for synchronized rotation
 camera = dict(
@@ -245,14 +245,14 @@ fig.update_layout(
         zaxis=dict(showgrid=False, visible=False),
         camera=camera
     ),
-    scene3=dict(
-        xaxis=dict(showgrid=False, visible=False),
-        yaxis=dict(showgrid=False, visible=False),
-        zaxis=dict(showgrid=False, visible=False),
-        camera=camera
-    ),
+    # scene3=dict(
+    #     xaxis=dict(showgrid=False, visible=False),
+    #     yaxis=dict(showgrid=False, visible=False),
+    #     zaxis=dict(showgrid=False, visible=False),
+    #     camera=camera
+    # ),
     height=600,
-    width=1800,
+    width=1200,
     showlegend=False,
     margin=dict(l=0, r=0, b=0, t=30, pad=0)
 )
@@ -276,17 +276,10 @@ function syncCamera(eventdata) {
     if (eventdata['scene.camera']) {
         cameraUpdate['scene.camera'] = eventdata['scene.camera'];
         cameraUpdate['scene2.camera'] = eventdata['scene.camera'];
-        cameraUpdate['scene3.camera'] = eventdata['scene.camera'];
         needsUpdate = true;
     } else if (eventdata['scene2.camera']) {
         cameraUpdate['scene.camera'] = eventdata['scene2.camera'];
         cameraUpdate['scene2.camera'] = eventdata['scene2.camera'];
-        cameraUpdate['scene3.camera'] = eventdata['scene2.camera'];
-        needsUpdate = true;
-    } else if (eventdata['scene3.camera']) {
-        cameraUpdate['scene.camera'] = eventdata['scene3.camera'];
-        cameraUpdate['scene2.camera'] = eventdata['scene3.camera'];
-        cameraUpdate['scene3.camera'] = eventdata['scene3.camera'];
         needsUpdate = true;
     }
     
@@ -310,9 +303,9 @@ plot.on('plotly_relayout', syncCamera);
 html_string = html_string.replace('</body>', sync_js + '</body>')
 
 # write to file
-output_path = result_folder / 'output.html'
+output_path = result_folder / 'index.html'
 with open(output_path, 'w') as f:
     f.write(html_string)
 print(f"Plot saved to: {output_path}")
 print("Run: python -m http.server 8080 --directory result")
-print("Then open http://localhost:8080/output.html in your browser")
+print("Then open http://localhost:8080/index.html in your browser")
