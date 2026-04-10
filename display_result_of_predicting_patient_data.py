@@ -180,9 +180,8 @@ def create_voxel_mesh(centers, colors=None, color=None, opacity=1.0, name='', vo
         color=color,
         opacity=opacity,
         flatshading=True,
+        lighting=dict(ambient=1, diffuse=0, specular=0, roughness=1, fresnel=0),
         name=name,
-        lighting=dict(ambient=0.5, diffuse=0.8, specular=0.2, roughness=0.5, fresnel=0.1),
-        lightposition=dict(x=100, y=200, z=300),
     )
     return mesh
 
@@ -202,7 +201,7 @@ non_electrode_nodes = nodes[non_electrode_mask]
 
 # add gray geometry voxels (non-electrode positions only)
 fig.add_trace(create_voxel_mesh(
-    non_electrode_nodes, color='lightgray', opacity=0, name='Geometry'
+    non_electrode_nodes, color='lightgray', opacity=0.1, name='Geometry'
 ), row=1, col=1)
 
 # add electrode data voxels
@@ -226,13 +225,15 @@ fig.update_layout(
         xaxis=dict(showgrid=False, visible=False),
         yaxis=dict(showgrid=False, visible=False),
         zaxis=dict(showgrid=False, visible=False),
-        camera=camera
+        camera=camera,
+        dragmode='orbit'
     ),
     scene2=dict(
         xaxis=dict(showgrid=False, visible=False),
         yaxis=dict(showgrid=False, visible=False),
         zaxis=dict(showgrid=False, visible=False),
-        camera=camera
+        camera=camera,
+        dragmode='orbit'
     ),
     height=600,
     width=1200,
