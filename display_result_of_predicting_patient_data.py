@@ -39,6 +39,33 @@ geometry_data = {k: data[k] for k in data.files}
 nodes = geometry_data['voxel3mm_1mm_spacing']  # shape (n_node, 3)
 
 #%%
+# comparison of simulated and clinical electrogram
+do_flag = 0
+if do_flag == 1:
+    clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined'][:,2000-500:2000+500]
+
+    simulation_data_file = Path('/home/j/Desktop/hdd/103_1-lagood_3mm_1focal') / 'train' / 'simulation_results_9307.npz'
+    data = np.load(simulation_data_file, allow_pickle=True)
+    simulation_data = {k: data[k] for k in data.files}
+    simulation_electrogram = simulation_data['electrogram_unipolar'].T
+
+    e_id = np.arange(110,119)
+    offset_step_1 = np.max(np.abs(simulation_electrogram[e_id, :])) * 1.5
+    offset_step_2 = np.max(np.abs(clinical_electrogram[e_id, :])) * 1.5
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 8), sharex=True, sharey=False)
+    for i, eid in enumerate(e_id):
+        offset_1 = i * offset_step_1
+        offset_2 = i * offset_step_2
+        ax1.plot(simulation_electrogram[eid, :] + offset_1, c='b')
+        ax2.plot(clinical_electrogram[eid, :] + offset_2, c='b')
+    ax1.set_title('simulated unipolar')
+    ax2.set_title('clinical unipolar')
+    plt.tight_layout()
+    plt.savefig(result_folder / 'egm, simulated vs clinical.png', dpi=300)
+    plt.close()
+
+#%%
 # predicted data for rhythm 0
 sample_id = 0
 rhythm_id = 0
