@@ -232,7 +232,8 @@ if train_flag == 0:
             x_temp = []
             for i in range(start_idx, end_idx):
                ##########
-               electrogram_unipolar = map_data['clinical_electrogram_unipolar_refined'].T # shape (t, n_nodes)
+               # electrogram_unipolar = map_data['clinical_electrogram_unipolar_refined'].T # shape (t, n_nodes)
+               electrogram_unipolar = map_data['clinical_electrogram_unipolar'].T # shape (t, n_nodes)
                # electrogram_unipolar = simulation_egm
                electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
                

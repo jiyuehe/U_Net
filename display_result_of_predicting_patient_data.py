@@ -40,9 +40,10 @@ nodes = geometry_data['voxel3mm_1mm_spacing']  # shape (n_node, 3)
 
 #%%
 # comparison of simulated and clinical electrogram
-do_flag = 0
+do_flag = 1
 if do_flag == 1:
-    clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined'][:,2000-500:2000+500]
+    # clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined'][:,2000-500:2000+500]
+    clinical_electrogram = geometry_data['clinical_electrogram_unipolar'][:,2000-500:2000+500]
 
     simulation_data_file = Path('/home/j/Desktop/hdd/103_1-lagood_3mm_1focal') / 'train' / 'simulation_results_9307.npz'
     data = np.load(simulation_data_file, allow_pickle=True)
