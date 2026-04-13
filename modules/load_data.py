@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 import torch
 
-def _normalize_to_unit_interval(values):
+def normalize_to_unit_interval(values):
     min_value = np.min(values)
     max_value = np.max(values)
     range_value = max_value - min_value
@@ -10,7 +10,7 @@ def _normalize_to_unit_interval(values):
         return np.zeros_like(values, dtype=np.float32)
     return ((values - min_value) / range_value).astype(np.float32)
 
-def _extract_input_signal(payload, data_flag, file_path):
+def extract_input_signal(payload, data_flag, file_path):
     if data_flag == 0:
         candidate_keys = ['action_potential']
     elif data_flag == 1:
@@ -64,19 +64,19 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
     for i in range(start_idx, end_idx):
         file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}_{s2_index[i]}.npz'
         payload = dict(np.load(file_name_x, allow_pickle=False))
-        x = _extract_input_signal(payload, parameters['data_flag'], file_name_x)
-        x = _normalize_to_unit_interval(x)
+        x = extract_input_signal(payload, parameters['data_flag'], file_name_x)
+        x = normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
         
         x_temp.append(x)
         
         file_name_y_1 = Path(data_folder) / f'lat_{s1_index[i]}.npz'
         y_1 = np.load(file_name_y_1)['lat']
-        y_1 = _normalize_to_unit_interval(y_1)
+        y_1 = normalize_to_unit_interval(y_1)
 
         file_name_y_2 = Path(data_folder) / f'lat_{s2_index[i]}.npz'
         y_2 = np.load(file_name_y_2)['lat']
-        y_2 = _normalize_to_unit_interval(y_2)
+        y_2 = normalize_to_unit_interval(y_2)
 
         y = np.vstack((y_1, y_2)) # shape (2, nodes)
         y_temp.append(y)
