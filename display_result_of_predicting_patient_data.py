@@ -29,23 +29,24 @@ from scipy.signal import find_peaks
 # load prediction results
 result_folder = script_dir / 'result'
 
-name_prefix = '103_1-lagood'
+# name_prefix = '102_1-lagood'
+name_prefix = '101_1-LA FAM1'
 
 predicted_data = np.load(result_folder / f'predictions_{name_prefix}.npy')
 
-geometry_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map_refined.npz'
+geometry_file_name = script_dir.parent / 'data' / f'{name_prefix}_processed_map_refined.npz'
 data = np.load(geometry_file_name, allow_pickle=True)
 geometry_data = {k: data[k] for k in data.files}
 nodes = geometry_data['voxel3mm_1mm_spacing']  # shape (n_node, 3)
 
 #%%
 # comparison of simulated and clinical electrogram
-do_flag = 1
+do_flag = 0
 if do_flag == 1:
     # clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined'][:,2000-500:2000+500]
     clinical_electrogram = geometry_data['clinical_electrogram_unipolar'][:,2000-500:2000+500]
 
-    simulation_data_file = Path('/home/j/Desktop/hdd/103_1-lagood_3mm_1focal') / 'train' / 'simulation_results_9307.npz'
+    simulation_data_file = Path('/home/j/Desktop/hdd/102_1-lagood_3mm_1focal') / 'train' / 'simulation_results_9307.npz'
     data = np.load(simulation_data_file, allow_pickle=True)
     simulation_data = {k: data[k] for k in data.files}
     simulation_electrogram = simulation_data['electrogram_unipolar'].T
@@ -75,14 +76,14 @@ data_predicted = predicted_data[sample_id][rhythm_id,:]
 data_min_pred = np.nanmin(data_predicted)
 data_max_pred = np.nanmax(data_predicted)
 data_threshold_pred = data_min_pred-0.1
-converted_color_pred = common.convert_data_to_color.execute(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
+converted_color_pred = common.convert_value_to_red_blue(data_predicted, data_min_pred, data_max_pred, data_threshold_pred)
 
 #%%
 # process the mix rhythm map
 ##########
 clinical_electrogram = geometry_data['clinical_electrogram_unipolar_refined']
 
-# file_path = script_dir.parent / '0_data' / 'simulation_results_6890_20931.npy'
+# file_path = script_dir.parent / 'data' / 'simulation_results_6890_20931.npy'
 # simulation_data = np.load(file_path, allow_pickle=True).item()
 # clinical_electrogram = simulation_data['electrogram_unipolar'].T
 
@@ -160,7 +161,7 @@ electrode_node_id_valid = electrode_node_id[valid_mask]
 data_min_electrode = np.nanmin(data_electrode_valid)
 data_max_electrode = np.nanmax(data_electrode_valid)
 data_threshold_electrode = data_min_electrode-0.01
-converted_color_electrode = common.convert_data_to_color.execute(data_electrode_valid, data_min_electrode, data_max_electrode, data_threshold_electrode)
+converted_color_electrode = common.convert_value_to_red_blue(data_electrode_valid, data_min_electrode, data_max_electrode, data_threshold_electrode)
 
 electrode_node = geometry_data['voxel3mm_1mm_spacing'][electrode_node_id,:][valid_mask,:]
 
@@ -171,7 +172,7 @@ data_node = lat_node_full
 data_min_node = np.nanmin(data_node)
 data_max_node = np.nanmax(data_node)
 data_threshold_node = data_min_node-0.01
-converted_color_node = common.convert_data_to_color.execute(data_node, data_min_node, data_max_node, data_threshold_node)
+converted_color_node = common.convert_value_to_red_blue(data_node, data_min_node, data_max_node, data_threshold_node)
 '''
 #%%
 def create_voxel_mesh(centers, colors=None, color=None, opacity=1.0, name='', voxel_size=1.0):

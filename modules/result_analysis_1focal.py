@@ -122,7 +122,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         data_min = np.nanmin(data)
         data_max = np.nanmax(data)
         data_threshold = data_min-0.1
-        converted_color = common.convert_data_to_color.execute(data, data_min, data_max, data_threshold)
+        converted_color = common.convert_value_to_red_blue(data, data_min, data_max, data_threshold)
         converted_color[non_e_id,:] = 0.8 # set non-electrode nodes to grey
 
         fig = plt.figure(figsize=(8, 6), dpi=100)
@@ -132,7 +132,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         elif parameters['geometry_flag'] in [1, 4]:
             ax = plt.axes(projection='3d')
             scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal.execute(ax)
+            common.set_axes_equal(ax)
             ax.view_init(elev=70, azim=-70)
         # ax.set_xlabel('X')
         # ax.set_ylabel('Y')
@@ -170,7 +170,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         data_min = np.nanmin(data_truth)
         data_max = np.nanmax(data_truth)
         data_threshold = data_min-0.1
-        converted_color = common.convert_data_to_color.execute(data_truth, data_min, data_max, data_threshold)
+        converted_color = common.convert_value_to_red_blue(data_truth, data_min, data_max, data_threshold)
         
         fig = plt.figure(figsize=(8, 6), dpi=100)
         if parameters['geometry_flag'] == 0:
@@ -179,7 +179,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         elif parameters['geometry_flag'] in [1, 4]:
             ax = plt.axes(projection='3d')
             scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal.execute(ax)
+            common.set_axes_equal(ax)
             ax.view_init(elev=70, azim=-70)
         plt.axis('off')
         plt.tight_layout()
@@ -187,12 +187,12 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_lat_truth.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
-        common.crop_image.execute(image_file_name)
+        common.crop_image(image_file_name)
 
         data_min = np.nanmin(data_predicted)
         data_max = np.nanmax(data_predicted)
         data_threshold = data_min-0.1
-        converted_color = common.convert_data_to_color.execute(data_predicted, data_min, data_max, data_threshold)
+        converted_color = common.convert_value_to_red_blue(data_predicted, data_min, data_max, data_threshold)
 
         fig = plt.figure(figsize=(8, 6), dpi=100)
         if parameters['geometry_flag'] == 0:
@@ -201,7 +201,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         elif parameters['geometry_flag'] in [1, 4]:
             ax = plt.axes(projection='3d')
             scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal.execute(ax)
+            common.set_axes_equal(ax)
             ax.view_init(elev=70, azim=-70)
         plt.axis('off')
         plt.tight_layout()
@@ -209,4 +209,4 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_lat_predict_MAE_{error_mae:.4f}.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
-        common.crop_image.execute(image_file_name)
+        common.crop_image(image_file_name)

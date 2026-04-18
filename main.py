@@ -41,9 +41,9 @@ parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 1: patient 3D atrium, 0: 2D sheet
 
 # mode settings
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
-testing_data_flag = 0 # 0: simulation data; 1: clinical data
+testing_data_flag = 1 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
 # geometry
@@ -54,8 +54,8 @@ if parameters['geometry_flag'] == 0:
    parameters['grid_height'] = 128 # do not change
    parameters['grid_width'] = 128 # do not change
 elif parameters['geometry_flag'] == 1:
-   name_prefix = '102_1-lagood'
-   # name_prefix = '101_1-LA FAM1'
+   # name_prefix = '102_1-lagood'
+   name_prefix = '101_1-LA FAM1'
 
    map_file_name = script_dir.parent / 'data' / f'{name_prefix}_processed_map_refined.npz'
    data_folder_name = '102_1-lagood_3mm_1focal'
@@ -198,7 +198,7 @@ if train_flag == 1:
    train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
 
 # plot loss history
-modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
+modules.result_analysis_1focal.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
 
 #%%
 if train_flag == 0:
