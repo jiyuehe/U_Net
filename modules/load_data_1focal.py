@@ -41,9 +41,12 @@ def file_index(data_folder, n_files_to_use):
     sort_idx = np.argsort(s1)
     s1 = s1[sort_idx]
 
+    N = len(s1)
     if n_files_to_use == -1:
-        n_files_to_use = len(s1)
-    s1 = s1[0:n_files_to_use]
+        n_files_to_use = N
+    
+    idx = np.round(np.linspace(0, N - 1, n_files_to_use)).astype(int)
+    s1 = s1[idx]
 
     return s1
 
