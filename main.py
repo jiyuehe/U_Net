@@ -5,11 +5,11 @@ script_dir = os.path.dirname(os.path.abspath(__file__)) # get the path of the cu
 os.chdir(script_dir) # change the working directory
 script_dir = Path(script_dir)
 
-# add the workspace root to Python path
-import sys
-workspace_root = Path().resolve().parent # Path().resolve() returns an absolute path, the full path
-if str(workspace_root) not in sys.path:
-    sys.path.insert(0, str(workspace_root))
+# # add the workspace root to Python path
+# import sys
+# workspace_root = Path().resolve().parent # Path().resolve() returns an absolute path, the full path
+# if str(workspace_root) not in sys.path:
+#     sys.path.insert(0, str(workspace_root))
 
 import modules
 
@@ -41,9 +41,9 @@ parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 1: patient 3D atrium, 0: 2D sheet
 
 # mode settings
-train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
-testing_data_flag = 1 # 0: simulation data; 1: clinical data
+testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
 # geometry
