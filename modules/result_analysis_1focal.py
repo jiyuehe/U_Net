@@ -9,7 +9,7 @@ import sys
 workspace_root = Path().resolve().parent # Path().resolve() returns an absolute path, the full path
 if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
-import common
+import PyHeartSim.common as common
 
 import modules as parent_codes
 

@@ -10,7 +10,6 @@ import sys
 workspace_root = Path().resolve().parent # Path().resolve() returns an absolute path, the full path
 if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
-import common
 
 import modules
 
@@ -34,32 +33,35 @@ parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * param
 # training parameters
 parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
-parameters['epochs'] = 500 # maximum epochs (training may stop earlier with early stopping)
+parameters['epochs'] = 1#500 # maximum epochs (training may stop earlier with early stopping)
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # data parameters
 parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
-parameters['geometry_flag'] = 1 # 0: 2D sheet, 1: patient 3D atrium
+parameters['geometry_flag'] = 1 # 1: patient 3D atrium, 0: 2D sheet
 
 # mode settings
-train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
 # geometry
 if parameters['geometry_flag'] == 0:
-   map_file_name = script_dir.parent / '0_data' / 'sheet.npy'
+   map_file_name = script_dir.parent / 'data' / 'sheet.npy'
    data_folder_name = '2d data, 2 focal 2 location 15ms apart'
    parameters['result_folder'] = script_dir / 'result_2d'
    parameters['grid_height'] = 128 # do not change
    parameters['grid_width'] = 128 # do not change
 elif parameters['geometry_flag'] == 1:
-   name_prefix = '103_1-lagood'
+   name_prefix = '102_1-lagood'
+   # name_prefix = '101_1-LA FAM1'
 
-   map_file_name = script_dir.parent / '0_data' / f'{name_prefix}_processed_map_refined.npz'
-   data_folder_name = '103_1-lagood_3mm_1focal'
+   map_file_name = script_dir.parent / 'data' / f'{name_prefix}_processed_map_refined.npz'
+   data_folder_name = '102_1-lagood_3mm_1focal'
    parameters['result_folder'] = script_dir / 'result'
+   parameters['result_folder'].mkdir(exist_ok=True)
+   
    parameters['grid_height'] = [] # unused; for code compatibility
    parameters['grid_width'] = [] # unused; for code compatibility
 
@@ -81,7 +83,6 @@ voxel3mm_id_for_electrode = map_data['voxel3mm_id_for_electrode']
 act = map_data['activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
 good_e_id = voxel3mm_id_for_electrode[good_id]
-voxel_id_of_voxel3mm = map_data['voxel_id_of_voxel3mm']
 
 voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
 voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
