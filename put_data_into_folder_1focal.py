@@ -9,7 +9,7 @@ import numpy as np
 import shutil
 
 #%%
-data_folder_name = '103_1-lagood_3mm_1focal'
+data_folder_name = 'one_focal'
 data_folder = Path('/home/j/Desktop/hdd') / data_folder_name
 
 # create folders if not exist

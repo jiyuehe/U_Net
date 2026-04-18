@@ -58,7 +58,7 @@ elif parameters['geometry_flag'] == 1:
    name_prefix = '101_1-LA FAM1'
 
    map_file_name = script_dir.parent / 'data' / f'{name_prefix}_processed_map_refined.npz'
-   data_folder_name = '102_1-lagood_3mm_1focal'
+   data_folder_name = 'one_focal'
    parameters['result_folder'] = script_dir / 'result'
    parameters['result_folder'].mkdir(exist_ok=True)
    
