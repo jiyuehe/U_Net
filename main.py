@@ -72,10 +72,10 @@ data = np.load(map_file_name, allow_pickle=True)
 map_data = {k: data[k] for k in data.files}
 
 # find the good electrode nodes that have good signals
-voxel3mm_id_for_electrode = map_data['voxel3mm_id_for_electrode']
+voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
 act = map_data['activation_uni']
 good_id = [i for i, x in enumerate(act) if x != 0]
-good_e_id = voxel3mm_id_for_electrode[good_id]
+good_e_id = voxel3mm_id_of_electrode[good_id]
 
 voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
 voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
@@ -234,7 +234,7 @@ if train_flag == 0:
                x = np.zeros((1000, n_node)) # assign all nodes zero signal
 
                ##########
-               e_id = map_data['voxel3mm_id_for_electrode']
+               e_id = map_data['voxel3mm_id_of_electrode']
                x[:, e_id] = electrogram_unipolar[2000-500:2000+500, :] # assign electrode nodes the electrogram signal
                # x[:, e_id] = simulation_egm[:, e_id]
                
