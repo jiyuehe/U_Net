@@ -5,12 +5,6 @@ script_dir = os.path.dirname(os.path.abspath(__file__)) # get the path of the cu
 os.chdir(script_dir) # change the working directory
 script_dir = Path(script_dir)
 
-# # add the workspace root to Python path
-# import sys
-# workspace_root = Path().resolve().parent # Path().resolve() returns an absolute path, the full path
-# if str(workspace_root) not in sys.path:
-#     sys.path.insert(0, str(workspace_root))
-
 import modules
 
 import torch
@@ -37,7 +31,6 @@ parameters['epochs'] = 100 # maximum epochs (training may stop earlier with earl
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # data parameters
-parameters['data_flag'] = 1 # 1: electrogram; 0: action potential
 parameters['geometry_flag'] = 1 # 1: patient 3D atrium, 0: 2D sheet
 
 # mode settings

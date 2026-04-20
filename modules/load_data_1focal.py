@@ -10,23 +10,6 @@ def _normalize_to_unit_interval(values):
         return np.zeros_like(values, dtype=np.float32)
     return ((values - min_value) / range_value).astype(np.float32)
 
-# def _extract_input_signal(payload, data_flag):
-#     if data_flag == 0:
-#         candidate_key = 'action_potential'
-#     elif data_flag == 1:
-#         candidate_key = 'electrogram_unipolar'
-#     # else:
-#     #     raise ValueError(f"Unsupported data_flag: {data_flag}. Expected 0 (action potential) or 1 (electrogram).")
-
-#     # if candidate_key in payload:
-#     return payload[candidate_key]
-
-#     # available_keys = sorted(payload.keys())
-#     # raise KeyError(
-#     #     f"None of expected keys {candidate_keys} found in {file_path}. "
-#     #     f"Available keys: {available_keys}"
-#     # )
-
 def file_index(data_folder, n_files_to_use):
     # grab file names of simulation results
     simulation_result_file_names = list(data_folder.glob('simulation_results_*.npz'))
@@ -71,8 +54,6 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
             expected_key = 'electrogram_unipolar'
         
         x = payload[expected_key]
-
-        # x = _extract_input_signal(payload, parameters['data_flag'])
         x = _normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
         
