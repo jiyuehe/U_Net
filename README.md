@@ -1,5 +1,5 @@
 NOTE: 
-the minkowski engine docker container is Ubuntu 18
+the minkowski engine docker container is Ubuntu 18  
 2D data dimensions (t, height, width)  
 3D data dimensions (t, depth, height, width)  
 
