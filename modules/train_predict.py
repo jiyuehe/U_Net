@@ -43,8 +43,7 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters):
     for i in range(start_idx, end_idx):
         # load patient data to grab the electrode voxel ids
         name_prefix = file_names[i].split("_simulation_results_")[0]
-        map_file_name = data_folder_patient / f'{name_prefix}_processed_map_refined.npz'
-        data = np.load(map_file_name, allow_pickle=True)
+        data = np.load(data_folder_patient / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
         map_data = {k: data[k] for k in data.files}
 
         # find the good electrode nodes that have good signals
@@ -69,38 +68,31 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters):
         # load simulation results
         simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
         
-        x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
+        x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :] # shape (t, n_node)
         x = normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
 
-        # add a binary channel to indicate non-electrode nodes as a mask
-        new_column = np.ones((x.shape[0], 1), dtype=np.float32)
-        new_column[:, non_e_id] = 0
-        x = np.concatenate((x, new_column), axis=1)
+        # add a binary row to indicate non-electrode nodes as a mask
+        new_row = np.ones((1, x.shape[1]), dtype=np.float32)
+        new_row[0, non_e_id] = 0
+        x = np.concatenate((x, new_row), axis=0)
         
         x_temp.append(x)
         
-        y_1 = simulation_results['lat']
-        y_1 = normalize_to_unit_interval(y_1)
-
-        y = y_1
+        y = simulation_results['lat_electrode']
+        y = normalize_to_unit_interval(y)
         
         y_temp.append(y)
 
-    # stack into tensors
-    input_data = torch.from_numpy(np.stack(x_temp, axis=0)) # shape (batch, t, n_node)
-    input_data = input_data.float().to(parameters['device']) # ensure float32
+    nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4)
 
-    output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, n_out_channel, n_node)
-    output_data = output_data.float().to(parameters['device']) # ensure float32
+    # build feats_batch: (batch * n_nodes, t) — handles variable n_nodes per sample
+    feats_list = [torch.from_numpy(x).float().T for x in x_temp]  # each: (n_nodes, t)
+    feats_batch = torch.cat(feats_list, dim=0).to(parameters['device'])
 
-    nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4), where each row is [batch_idx, x, y, z]
-
-    # reshape input data: (batch, t, nodes) -> (batch * nodes, t)
-    feats_batch = input_data.permute(0, 2, 1).reshape(-1, input_data.shape[1])
-    
-    # reshape output data: (batch, n_node) -> (batch * n_node, 1)
-    targets_batch = output_data.reshape(-1, 1)
+    # build targets_batch: (batch * n_nodes, 1)
+    targets_list = [torch.from_numpy(y).float().reshape(-1, 1) for y in y_temp]
+    targets_batch = torch.cat(targets_list, dim=0).to(parameters['device'])
 
     # create MinkowskiEngine sparse tensor
     neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=parameters['device'])
@@ -108,7 +100,7 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters):
 
     return neural_network_input, target_sparse
 
-def mse_loss(predictions, targets, geometry_flag):
+def mse_loss(predictions, targets):
     # extract features from sparse tensors
     pred_features = predictions.F
     target_features = targets.F
@@ -177,7 +169,7 @@ def train_model(parameters):
             # In PyTorch, when you define a model as a subclass of nn.Module, the class implements a special Python method called __call__(). __call__() (defined in nn.Module) -> calls model.forward(). Therefore model(input_data) calls model.forward(input_data).
             
             # calculate loss
-            loss = criterion(outputs, target_sparse, parameters['geometry_flag'])
+            loss = criterion(outputs, target_sparse)
             
             # backward pass: Compute gradients via backpropagation
             loss.backward()
@@ -199,7 +191,7 @@ def train_model(parameters):
         
         # shuffle validation indices at the start of each epoch
         perm = np.random.permutation(n_validation_samples)
-        file_names_validation = parameters['file_names_validation'][perm]
+        file_names_validation = np.array(parameters['file_names_validation'])[perm]
 
         with torch.no_grad(): # disables gradient computation
         # why disable gradients during validation?
@@ -218,7 +210,7 @@ def train_model(parameters):
                 outputs = parameters['model'](neural_network_input)
 
                 # calculate loss
-                loss = criterion(outputs, target_sparse, parameters['geometry_flag'])
+                loss = criterion(outputs, target_sparse)
                     
                 # accumulate loss
                 val_loss += loss.item()

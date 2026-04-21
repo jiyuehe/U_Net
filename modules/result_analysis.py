@@ -30,7 +30,7 @@ import modules as parent_codes
 import matplotlib.pyplot as plt 
 import numpy as np
 
-def plot_loss_history(result_folder, s1_train):
+def plot_loss_history(result_folder):
     loss_history_path = result_folder / 'loss_history.txt'
     train_loss_history = []
     val_loss_history = []
@@ -47,7 +47,7 @@ def plot_loss_history(result_folder, s1_train):
     plt.plot(val_loss_history, 'b-', label='Validation Loss')
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title(f'{len(s1_train)} samples. r: train loss ({min(train_loss_history)*10**3:.2f}e-3), b: valid loss ({min(val_loss_history)*10**3:.2f}e-3)')
+    plt.title(f'r: train loss ({min(train_loss_history)*10**3:.2f}e-3), b: valid loss ({min(val_loss_history)*10**3:.2f}e-3)')
     plt.legend()
     plt.grid(True)
     plt.savefig(result_folder / 'loss_history.png', dpi=100, bbox_inches="tight", pad_inches=0)

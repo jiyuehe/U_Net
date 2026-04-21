@@ -46,7 +46,7 @@ parameters['epochs'] = 100 # maximum epochs (training may stop earlier with earl
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # mode settings
-train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
@@ -143,8 +143,6 @@ if debug_flag == 1:
    # use print to show model architecture instead
    print(parameters['model'])
 
-parameters['data_folder_simulation'] = Path('/simulation_results') # this is for the MinkowskiEngine docker container
-
 #%%
 # train the model
 if train_flag == 1:
@@ -159,7 +157,7 @@ if train_flag == 1:
    train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
 
 # plot loss history
-modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
+modules.result_analysis.plot_loss_history(parameters['result_folder'])
 
 
 
