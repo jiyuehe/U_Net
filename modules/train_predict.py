@@ -33,7 +33,10 @@ def normalize_to_unit_interval(values):
     
     return ((values - min_value) / range_value).astype(np.float32)
 
-def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index, non_e_id, parameters):
+def load_input_and_target(start_idx, end_idx, data_folder_simulation, file_names, non_e_id, parameters):
+    data_folder_simulation = parameters['data_folder_simulation'] 
+    data_folder_patient = parameters['data_folder_patient']
+    
     # NOTE: 
     # the input argument 'non_e_id' has to be provided, because it is not necessary equal to parameters['non_e_id']
     # for example, when plotting mix rhythm activation time map, can set 'non_e_id' to an empty list to use all nodes
@@ -41,17 +44,36 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
     x_temp = []
     y_temp = []
     for i in range(start_idx, end_idx):
-        file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}.npz'
+        # load patient data to grab the electrode voxel ids
+        name_prefix = file_names[i].split("_simulation_results_")[0]
+        map_file_name = data_folder_patient / f'{name_prefix}_processed_map_refined.npz'
+        data = np.load(map_file_name, allow_pickle=True)
+        map_data = {k: data[k] for k in data.files}
+
+        # find the good electrode nodes that have good signals
+        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
+        act = map_data['activation_uni']
+        good_id = [i for i, x in enumerate(act) if x != 0]
+
+        good_e_id = voxel3mm_id_of_electrode[good_id]
+        n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
+        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
+
+        voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
+        voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
+        node = voxel3mm_1mm_spacing
+
+
+        # load simulation results
+        simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
         
-        payload = dict(np.load(file_name_x, allow_pickle=False))
-        
-        x = payload['electrogram_unipolar']
+        x = simulation_results['electrogram_unipolar']
         x = normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
         
         x_temp.append(x)
         
-        y_1 = payload['lat']
+        y_1 = simulation_results['lat']
         y_1 = normalize_to_unit_interval(y_1)
 
         y = y_1
@@ -142,7 +164,7 @@ def train_model(parameters):
 
         # shuffle training indices at the start of each epoch
         perm = np.random.permutation(n_train_samples)
-        s1_train_shuffled = parameters['file_names_train'][perm]
+        file_names_train = parameters['file_names_train'][perm]
         
         # training phase
         # ------------------------------
@@ -157,7 +179,7 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            neural_network_input, target_sparse = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, parameters['non_e_id'], parameters)
+            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_train, parameters['non_e_id'], parameters)
             # print(output_data.shape)
 
             # set gradients to zero
@@ -199,7 +221,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                neural_network_input, target_sparse = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['file_names_validation'], parameters['non_e_id'], parameters)
+                neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, parameters['data_folder_simulation'], parameters['file_names_validation'], parameters['non_e_id'], parameters)
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -273,7 +295,7 @@ def predict(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            neural_network_input, _ = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['file_names_test'], parameters['non_e_id'], parameters)
+            neural_network_input, _ = load_input_and_target(start_idx, end_idx, parameters['data_folder_simulation'], parameters['file_names_test'], parameters['non_e_id'], parameters)
 
             # forward pass
             outputs = parameters['model'](neural_network_input)

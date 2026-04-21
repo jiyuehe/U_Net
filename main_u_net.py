@@ -51,15 +51,16 @@ continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: tr
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
-parameters['data_folder'] = Path('/home/j/Desktop/hdd/simulation_results')
+parameters['data_folder_simulation'] = Path('/home/j/Desktop/hdd/simulation_results')
+parameters['data_folder_patient'] = Path('/home/j/Desktop/hdd/patient_data')
 parameters['result_folder'] = script_dir / 'result'
 parameters['result_folder'].mkdir(exist_ok=True)
 
 #%%
 train_validation_test_file_names = 'train_validation_test_file_names.txt'
-if not (parameters['data_folder'] / train_validation_test_file_names).exists(): # if file not exist
+if not (parameters['data_folder_simulation'] / train_validation_test_file_names).exists(): # if file not exist
    # grab file names of the simulation results
-   simulation_files = list(parameters['data_folder'].glob('*.npz'))
+   simulation_files = list(parameters['data_folder_simulation'].glob('*.npz'))
 
    n_samples = len(simulation_files)
 
@@ -75,7 +76,7 @@ if not (parameters['data_folder'] / train_validation_test_file_names).exists(): 
    file_id_test = perm[n_train + n_val:]
 
    # write a text file to save the file names of the training, validation and test data 
-   with open(parameters['data_folder'] / train_validation_test_file_names, 'w') as f:
+   with open(parameters['data_folder_simulation'] / train_validation_test_file_names, 'w') as f:
       f.write('[train]\n')
       for idx in file_id_train:
          f.write(f'{simulation_files[idx].name}\n')
@@ -87,7 +88,7 @@ if not (parameters['data_folder'] / train_validation_test_file_names).exists(): 
          f.write(f'{simulation_files[idx].name}\n')
 
 # load the file names of the training, validation and test data from the text file
-with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as f:
+with open(parameters['data_folder_simulation'] / train_validation_test_file_names, 'r') as f:
    lines = f.readlines()
    file_names_train = []
    file_names_validation = []
@@ -142,7 +143,7 @@ if debug_flag == 1:
    # use print to show model architecture instead
    print(parameters['model'])
 
-parameters['data_folder'] = Path('/simulation_results') # this is for the MinkowskiEngine docker container
+parameters['data_folder_simulation'] = Path('/simulation_results') # this is for the MinkowskiEngine docker container
 
 #%%
 # train the model
@@ -169,156 +170,120 @@ modules.result_analysis.plot_loss_history(parameters['result_folder'], parameter
 
 
 
-#%%
-# load geometry
-data = np.load(map_file_name, allow_pickle=True)
-map_data = {k: data[k] for k in data.files}
 
-# find the good electrode nodes that have good signals
-voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
-act = map_data['activation_uni']
-good_id = [i for i, x in enumerate(act) if x != 0]
-good_e_id = voxel3mm_id_of_electrode[good_id]
+# #%%
+# if train_flag == 0:
+#    # predict with test data
+#    print('model prediction')
 
-voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
-voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
+#    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
-parameters['node'] = voxel3mm_1mm_spacing
-n_nodes = parameters['node'].shape[0]
+#    if testing_data_flag == 0:
+#       predicted_data, truth_data = modules.train_predict.predict(parameters)
+#    elif testing_data_flag == 1:
+#       parameters['model'].eval()
 
-n_electrode = len(good_e_id)
-coef = n_electrode / n_nodes
-print(f'n_node: {n_nodes}, n_electrode: {n_electrode}, percentage: {coef*100:.2f}%')
+#       n_test_samples = 1
+#       n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
-parameters['e_id'] = good_e_id
-parameters['non_e_id'] = np.setdiff1d(np.arange(n_nodes), parameters['e_id'])
+#       ##########
+#       # file_path = script_dir.parent / '0_data' / 'simulation_results_6890_20931.npy'
+#       # simulation_data = np.load(file_path, allow_pickle=True).item()
+#       # simulation_egm = simulation_data['electrogram_unipolar']
 
-debug_plot = 0
-if debug_plot == 1:
-   # use Matplotlib here because I did not and do not want to install plotly in the MinkowskiEngine docker container 
-   node = parameters['node']
+#       all_predictions = []
+#       all_truths = []
+#       with torch.no_grad():
+#          for batch_idx in range(n_test_batches):
+#             print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
 
-   fig = plt.figure()
-   ax = fig.add_subplot(111, projection='3d')
-   ax.scatter(node[:, 0], node[:, 1], node[:, 2], s=1, c='gray', alpha=0.7)
-   ax.scatter(node[good_e_id, 0], node[good_e_id, 1], node[good_e_id, 2], s=9, c='blue')
-   ax.set_axis_off()
-   plt.tight_layout()
-   plt.show()
+#             start_idx = batch_idx * parameters['batch_size']
+#             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
-#%%
-if train_flag == 0:
-   # predict with test data
-   print('model prediction')
-
-   parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
-
-   if testing_data_flag == 0:
-      predicted_data, truth_data = modules.train_predict.predict(parameters)
-   elif testing_data_flag == 1:
-      parameters['model'].eval()
-
-      n_test_samples = 1
-      n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
-
-      ##########
-      # file_path = script_dir.parent / '0_data' / 'simulation_results_6890_20931.npy'
-      # simulation_data = np.load(file_path, allow_pickle=True).item()
-      # simulation_egm = simulation_data['electrogram_unipolar']
-
-      all_predictions = []
-      all_truths = []
-      with torch.no_grad():
-         for batch_idx in range(n_test_batches):
-            print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
-
-            start_idx = batch_idx * parameters['batch_size']
-            end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
-
-            n_node = parameters['node'].shape[0]
-            x_temp = []
-            for i in range(start_idx, end_idx):
-               ##########
-               # electrogram_unipolar = map_data['clinical_electrogram_unipolar_refined'].T # shape (t, n_nodes)
-               electrogram_unipolar = map_data['clinical_electrogram_unipolar'].T # shape (t, n_nodes)
-               # electrogram_unipolar = simulation_egm
-               electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
+#             n_node = parameters['node'].shape[0]
+#             x_temp = []
+#             for i in range(start_idx, end_idx):
+#                ##########
+#                # electrogram_unipolar = map_data['clinical_electrogram_unipolar_refined'].T # shape (t, n_nodes)
+#                electrogram_unipolar = map_data['clinical_electrogram_unipolar'].T # shape (t, n_nodes)
+#                # electrogram_unipolar = simulation_egm
+#                electrogram_unipolar = (electrogram_unipolar - np.min(electrogram_unipolar)) / (np.max(electrogram_unipolar) - np.min(electrogram_unipolar)) # normalize to 0-1
                
-               x = np.zeros((1000, n_node)) # assign all nodes zero signal
+#                x = np.zeros((1000, n_node)) # assign all nodes zero signal
 
-               ##########
-               e_id = map_data['voxel3mm_id_of_electrode']
-               x[:, e_id] = electrogram_unipolar[2000-500:2000+500, :] # assign electrode nodes the electrogram signal
-               # x[:, e_id] = simulation_egm[:, e_id]
+#                ##########
+#                e_id = map_data['voxel3mm_id_of_electrode']
+#                x[:, e_id] = electrogram_unipolar[2000-500:2000+500, :] # assign electrode nodes the electrogram signal
+#                # x[:, e_id] = simulation_egm[:, e_id]
                
-               x_temp.append(x)
+#                x_temp.append(x)
             
-            # stack into tensors
-            input_data = torch.from_numpy(np.stack(x_temp, axis=0)) # shape (batch, t, n_node)
-            # output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, 2, n_node)
+#             # stack into tensors
+#             input_data = torch.from_numpy(np.stack(x_temp, axis=0)) # shape (batch, t, n_node)
+#             # output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, 2, n_node)
 
-            # grab time slices
-            input_data = input_data[:, parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
+#             # grab time slices
+#             input_data = input_data[:, parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
 
-            input_data = input_data.float().to(parameters['device']) # ensure float32
-            # output_data = output_data.float().to(parameters['device']) # ensure float32
+#             input_data = input_data.float().to(parameters['device']) # ensure float32
+#             # output_data = output_data.float().to(parameters['device']) # ensure float32
 
-            device = parameters['device']
-            node = parameters['node']
-            # create nodes_batch for MinkowskiEngine: shape (N_total, 4) where each row is [batch_idx, x, y, z]
-            # node has shape (n_nodes, 3)
-            nodes_list = []
-            current_batch_size = input_data.shape[0]
-            for b in range(current_batch_size):
-               n_nodes = node.shape[0]
+#             device = parameters['device']
+#             node = parameters['node']
+#             # create nodes_batch for MinkowskiEngine: shape (N_total, 4) where each row is [batch_idx, x, y, z]
+#             # node has shape (n_nodes, 3)
+#             nodes_list = []
+#             current_batch_size = input_data.shape[0]
+#             for b in range(current_batch_size):
+#                n_nodes = node.shape[0]
 
-               batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
-               sample_nodes = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # convert xyz to integers. shape (n_nodes, 4)
-               nodes_list.append(sample_nodes)
-            nodes_batch = torch.cat(nodes_list, dim=0).to(device)  # (batch * n_nodes, 4)
+#                batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
+#                sample_nodes = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # convert xyz to integers. shape (n_nodes, 4)
+#                nodes_list.append(sample_nodes)
+#             nodes_batch = torch.cat(nodes_list, dim=0).to(device)  # (batch * n_nodes, 4)
 
-            # reshape input data: (batch, t, nodes) -> (batch * nodes, t)
-            feats_batch = input_data.permute(0, 2, 1).reshape(-1, input_data.shape[1])
+#             # reshape input data: (batch, t, nodes) -> (batch * nodes, t)
+#             feats_batch = input_data.permute(0, 2, 1).reshape(-1, input_data.shape[1])
             
-            # create MinkowskiEngine sparse tensor
-            neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=device)
-            # target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=device)
+#             # create MinkowskiEngine sparse tensor
+#             neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=device)
+#             # target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=device)
 
-            # forward pass
-            outputs = parameters['model'](neural_network_input)
+#             # forward pass
+#             outputs = parameters['model'](neural_network_input)
 
-            current_batch_size = input_data.shape[0]
+#             current_batch_size = input_data.shape[0]
 
-            # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
-            # find the minimum coordinate for dense conversion (required if any coordinate is negative)
-            min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
+#             # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
+#             # find the minimum coordinate for dense conversion (required if any coordinate is negative)
+#             min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
             
-            # extract predictions at shifted coordinates
-            dense = outputs.dense(min_coordinate=min_coord)
-            prediction_dense = dense[0].cpu()  # shape: (batch, 2, X, Y, Z)
-            n_nodes = parameters['node'].shape[0]
-            shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
-            prediction = np.zeros((current_batch_size, 2, n_nodes), dtype=np.float32)
-            for b in range(current_batch_size):
-               for n, (x, y, z) in enumerate(shifted_coord):
-                  prediction[b, :, n] = prediction_dense[b, :, x, y, z]
-            prediction = torch.tensor(prediction)
+#             # extract predictions at shifted coordinates
+#             dense = outputs.dense(min_coordinate=min_coord)
+#             prediction_dense = dense[0].cpu()  # shape: (batch, 2, X, Y, Z)
+#             n_nodes = parameters['node'].shape[0]
+#             shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
+#             prediction = np.zeros((current_batch_size, 2, n_nodes), dtype=np.float32)
+#             for b in range(current_batch_size):
+#                for n, (x, y, z) in enumerate(shifted_coord):
+#                   prediction[b, :, n] = prediction_dense[b, :, x, y, z]
+#             prediction = torch.tensor(prediction)
 
-            all_predictions.append(prediction)
+#             all_predictions.append(prediction)
 
-         # concatenate all batches
-         predicted_data = torch.cat(all_predictions, dim=0).numpy()
+#          # concatenate all batches
+#          predicted_data = torch.cat(all_predictions, dim=0).numpy()
 
-   # save the prediction results
-   np.save(parameters['result_folder'] / f'predictions_{name_prefix}.npy', predicted_data)
+#    # save the prediction results
+#    np.save(parameters['result_folder'] / f'predictions_{name_prefix}.npy', predicted_data)
 
-   #%%
-   if testing_data_flag == 0:
-      # plot mix rhythm activation time map
-      start_idx = 0
-      end_idx = len(parameters['s1_test'])
+#    #%%
+#    if testing_data_flag == 0:
+#       # plot mix rhythm activation time map
+#       start_idx = 0
+#       end_idx = len(parameters['s1_test'])
 
-      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+#       modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 
 print('done')
 
