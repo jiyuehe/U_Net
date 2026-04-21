@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import unet_minkowski
-from . import train_predict
 from . import load_data
 from . import result_analysis
+from . import train_predict
+from . import unet_minkowski
