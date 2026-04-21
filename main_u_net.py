@@ -90,16 +90,38 @@ if not (parameters['data_folder'] / train_validation_test_file_names).exists(): 
 
    # write a text file to save the file names of the training, validation and test data 
    with open(parameters['data_folder'] / train_validation_test_file_names, 'w') as f:
-      f.write('train:\n')
+      f.write('[train]\n')
       for idx in file_id_train:
          f.write(f'{simulation_files[idx].name}\n')
-      f.write('validation:\n')
+      f.write('[validation]\n')
       for idx in file_id_validation:
          f.write(f'{simulation_files[idx].name}\n')
-      f.write('test:\n')
+      f.write('[test]\n')
       for idx in file_id_test:
          f.write(f'{simulation_files[idx].name}\n')
 
+# load the file names of the training, validation and test data from the text file
+with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as f:
+   lines = f.readlines()
+   file_names_train = []
+   file_names_validation = []
+   file_names_test = []
+   current_section = None
+   for line in lines:
+      line = line.strip()
+      if line == '[train]':
+         current_section = 'train'
+      elif line == '[validation]':
+         current_section = 'validation'
+      elif line == '[test]':
+         current_section = 'test'
+      elif line and current_section is not None:
+         if current_section == 'train':
+            file_names_train.append(line)
+         elif current_section == 'validation':
+            file_names_validation.append(line)
+         elif current_section == 'test':
+            file_names_test.append(line)
 
 
 
