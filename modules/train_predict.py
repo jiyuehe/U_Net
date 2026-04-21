@@ -151,7 +151,7 @@ def train_model(parameters):
 
         # shuffle training indices at the start of each epoch
         perm = np.random.permutation(n_train_samples)
-        file_names_train = parameters['file_names_train'][perm]
+        file_names_train = np.array(parameters['file_names_train'])[perm]
         
         # training phase
         # ------------------------------
