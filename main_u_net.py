@@ -45,29 +45,15 @@ parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 100 # maximum epochs (training may stop earlier with early stopping)
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
-# data parameters
-parameters['geometry_flag'] = 1 # 1: patient 3D atrium, 0: 2D sheet
-
 # mode settings
 train_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
-# geometry
-if parameters['geometry_flag'] == 0:
-   map_file_name = ''
-   data_folder_name = ''
-   parameters['result_folder'] = ''
-   parameters['grid_height'] = 128 # do not change
-   parameters['grid_width'] = 128 # do not change
-elif parameters['geometry_flag'] == 1:
-   parameters['data_folder'] = Path('/home/j/Desktop/hdd/simulation_results')
-   parameters['result_folder'] = script_dir / 'result'
-   parameters['result_folder'].mkdir(exist_ok=True)
-   
-   parameters['grid_height'] = [] # unused; for code compatibility
-   parameters['grid_width'] = [] # unused; for code compatibility
+parameters['data_folder'] = Path('/home/j/Desktop/hdd/simulation_results')
+parameters['result_folder'] = script_dir / 'result'
+parameters['result_folder'].mkdir(exist_ok=True)
 
 #%%
 train_validation_test_file_names = 'train_validation_test_file_names.txt'
@@ -123,6 +109,18 @@ with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as 
          elif current_section == 'test':
             file_names_test.append(line)
 
+print(f'n_train: {len(file_names_train)}, n_validation: {len(file_names_validation)}, n_test: {len(file_names_test)}')
+
+# load the data
+
+
+
+
+
+
+
+
+
 
 
 
@@ -141,25 +139,24 @@ with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as 
 
 #%%
 # create the U-Net model
-if parameters['geometry_flag'] == 1:
-   try:
-      import MinkowskiEngine as ME # https://nvidia.github.io/MinkowskiEngine/overview.html
-   except ImportError:
-      print('MinkowskiEngine is not installed.')
-      pass
+try:
+   import MinkowskiEngine as ME # https://nvidia.github.io/MinkowskiEngine/overview.html
+except ImportError:
+   print('MinkowskiEngine is not installed.')
+   pass
 
 parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if parameters['geometry_flag'] == 0:
-   parameters['model'] = modules.unet.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
-elif parameters['geometry_flag'] == 1:
-   try: 
-      parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints']+1, out_channels=1,D=3).to(parameters['device']) 
-      # D is the dimension of the input data
-      # in_channels is n_timepoints channels for the electrogram, plus 1 channel as an indicator for electrode nodes (1 for electrode nodes, 0 for non-electrode nodes)
-      # out_channels is 1 for the predicted activation time map
-   except Exception as e:
-      print('MinkowskiEngine is not installed.')
-      pass
+   parameters['model'] = modules.unet_2d.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
+
+try: 
+   parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints']+1, out_channels=1,D=3).to(parameters['device']) 
+   # D is the dimension of the input data
+   # in_channels is n_timepoints channels for the electrogram, plus 1 channel as an indicator for electrode nodes (1 for electrode nodes, 0 for non-electrode nodes)
+   # out_channels is 1 for the predicted activation time map
+except Exception as e:
+   print('MinkowskiEngine is not installed.')
+   pass
 
 debug_flag = 0
 if debug_flag == 1:
@@ -223,28 +220,7 @@ if debug_plot == 1:
    plt.tight_layout()
    plt.show()
 
-#%%
-if parameters['geometry_flag'] == 0:
-   parameters['data_folder'] = Path('/home/j/Desktop/hdd') / data_folder_name
-elif parameters['geometry_flag'] == 1:
-   parameters['data_folder'] = Path('/data') / data_folder_name # this is when using the MinkowskiEngine docker container
-
-# load data file index
-data_type = '1focal' # '1focal' or '2focal'
-if data_type == '1focal':
-   # load training data file index
-   n_files_to_use = -1 # -1: use all files; or specify a number
-   parameters['s1_train'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'train', n_files_to_use)
-
-   # load validation data file index
-   n_files_to_use = -1 # -1: use all files; or specify a number
-   parameters['s1_validation'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
-
-   # load test data file index
-   n_files_to_use = 10 # -1: use all files; or specify a number
-   parameters['s1_test'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'test', n_files_to_use)
-
-print(f'n_train: {len(parameters["s1_train"])}, n_validation: {len(parameters["s1_validation"])}, n_test: {len(parameters["s1_test"])}')
+parameters['data_folder'] = Path('/data') / data_folder_name # this is when using the MinkowskiEngine docker container
 
 #%%
 # train the model
@@ -260,7 +236,7 @@ if train_flag == 1:
    train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
 
 # plot loss history
-modules.result_analysis_1focal.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
+modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
 
 #%%
 if train_flag == 0:
@@ -374,19 +350,7 @@ if train_flag == 0:
       start_idx = 0
       end_idx = len(parameters['s1_test'])
 
-      if data_type == '2focal':
-         # plot full mix rhythm data
-         sparse_electrode_flag = 0 # 1: use sparse electrode nodes; 0: use all nodes
-         modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
-
-         # plot sparse electrode nodes mix rhythm data
-         sparse_electrode_flag = 1 # 1: use sparse electrode nodes; 0: use all nodes
-         modules.result_analysis.plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters)
-
-         # plot truth and predicted activation time map
-         modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
-      elif data_type == '1focal':
-         modules.result_analysis_1focal.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 
 print('done')
 

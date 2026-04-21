@@ -24,29 +24,6 @@ def _normalize_to_unit_interval(values):
         return np.zeros_like(values, dtype=np.float32)
     return ((values - min_value) / range_value).astype(np.float32)
 
-def file_index(data_folder, n_files_to_use):
-    # grab file names of simulation results
-    simulation_result_file_names = list(data_folder.glob('simulation_results_*.npz'))
-    s1 = []
-    for f in simulation_result_file_names:
-        stem = f.stem # e.g., 'simulation_results_123'
-        parts = stem.replace('simulation_results_', '').split('_')
-        s1.append(int(parts[0]))
-    s1 = np.array(s1)
-
-    # sort
-    sort_idx = np.argsort(s1)
-    s1 = s1[sort_idx]
-
-    N = len(s1)
-    if n_files_to_use == -1:
-        n_files_to_use = N
-    
-    idx = np.round(np.linspace(0, N - 1, n_files_to_use)).astype(int)
-    s1 = s1[idx]
-
-    return s1
-
 def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index, s2_index, non_e_id, parameters):
     # NOTE: 
     # the input argument 'non_e_id' has to be provided, because it is not necessary equal to parameters['non_e_id']
@@ -55,11 +32,8 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
     x_temp = []
     y_temp = []
     for i in range(start_idx, end_idx):
-        if s2_index is not None:
-            file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}_{s2_index[i]}.npz'
-        else:
-            file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}.npz'
-
+        file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}.npz'
+        
         payload = dict(np.load(file_name_x, allow_pickle=False))
         
         if parameters['data_flag'] == 0:
