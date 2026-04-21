@@ -1,11 +1,8 @@
 NOTE: 
 the minkowski engine docker container is Ubuntu 18  
-2D data dimensions (t, height, width)  
 3D data dimensions (t, depth, height, width)  
 
-Use Minkowski Engine Docker
-[Run my Docker container]
-if docker is running, kill all docker containers: 
+if docker is running, command line to kill all docker containers: 
 docker stop $(docker ps -q)
 
 tmux 
