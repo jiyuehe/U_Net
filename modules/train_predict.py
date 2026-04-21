@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
-import modules
 import time
 
 try:
@@ -23,28 +23,56 @@ try:
 except ImportError:
     ME = None
 
-def mse_loss(predictions, targets, geometry_flag):
-    if geometry_flag == 0: # 0: 2D sheet
-        pred_features = predictions
-        target_features = targets
-    elif geometry_flag in [1, 4]: # 1: patient 3D atrium, 4: hollow 3D cube
-        # extract features from sparse tensors
-        pred_features = predictions.F
-        target_features = targets.F
+def normalize_to_unit_interval(values):
+    min_value = np.min(values)
+    max_value = np.max(values)
+    range_value = max_value - min_value
+
+    if range_value == 0:
+        return np.zeros_like(values, dtype=np.float32)
     
-    # mask = ~torch.isnan(target_features)
-    # if mask.sum() == 0: # all NaN
-    #     return torch.tensor(0.0, device=pred_features.device)
-    # pred_features = pred_features[mask]
-    # target_features = target_features[mask]
+    return ((values - min_value) / range_value).astype(np.float32)
 
-    loss = nn.functional.mse_loss(pred_features, target_features)
+def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index, non_e_id, parameters):
+    # NOTE: 
+    # the input argument 'non_e_id' has to be provided, because it is not necessary equal to parameters['non_e_id']
+    # for example, when plotting mix rhythm activation time map, can set 'non_e_id' to an empty list to use all nodes
 
-    return loss
+    x_temp = []
+    y_temp = []
+    for i in range(start_idx, end_idx):
+        file_name_x = Path(data_subfolder) / f'simulation_results_{s1_index[i]}.npz'
+        
+        payload = dict(np.load(file_name_x, allow_pickle=False))
+        
+        x = payload['electrogram_unipolar']
+        x = normalize_to_unit_interval(x)
+        x[:, non_e_id] = 0
+        
+        x_temp.append(x)
+        
+        y_1 = payload['lat']
+        y_1 = normalize_to_unit_interval(y_1)
 
-def garther_Minkowski_input(input_data, output_data, node, device):
+        y = y_1
+        
+        y_temp.append(y)
+
+    # stack into tensors
+    input_data = torch.from_numpy(np.stack(x_temp, axis=0)) # shape (batch, t, n_node)
+    output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, n_out_channel, n_node)
+
+    # grab time slices
+    input_data = input_data[:, parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
+
+    input_data = input_data.float().to(parameters['device']) # ensure float32
+    output_data = output_data.float().to(parameters['device']) # ensure float32
+
     # create nodes_batch for MinkowskiEngine: shape (N_total, 4) where each row is [batch_idx, x, y, z]
     # node has shape (n_nodes, 3)
+    node = parameters['node']
+    device = parameters['device']
+
     nodes_list = []
     current_batch_size = input_data.shape[0]
     for b in range(current_batch_size):
@@ -71,6 +99,15 @@ def garther_Minkowski_input(input_data, output_data, node, device):
 
     return neural_network_input, target_sparse
 
+def mse_loss(predictions, targets, geometry_flag):
+    # extract features from sparse tensors
+    pred_features = predictions.F
+    target_features = targets.F
+
+    loss = nn.functional.mse_loss(pred_features, target_features)
+
+    return loss
+
 def train_model(parameters):
     # assign the loss function
     criterion = mse_loss
@@ -84,8 +121,8 @@ def train_model(parameters):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=3)
     
     # calculate number of batches
-    n_train_samples = len(parameters['s1_train'])
-    n_validation_samples = len(parameters['s1_validation'])
+    n_train_samples = len(parameters['file_names_train'])
+    n_validation_samples = len(parameters['file_names_validation'])
     n_train_batches = (n_train_samples + parameters['batch_size'] - 1) // parameters['batch_size']
     n_validation_batches = (n_validation_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
@@ -105,7 +142,7 @@ def train_model(parameters):
 
         # shuffle training indices at the start of each epoch
         perm = np.random.permutation(n_train_samples)
-        s1_train_shuffled = parameters['s1_train'][perm]
+        s1_train_shuffled = parameters['file_names_train'][perm]
         
         # training phase
         # ------------------------------
@@ -120,10 +157,8 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, None, parameters['non_e_id'], parameters)
+            neural_network_input, target_sparse = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'train', s1_train_shuffled, parameters['non_e_id'], parameters)
             # print(output_data.shape)
-
-            neural_network_input, target_sparse = garther_Minkowski_input(input_data, output_data, parameters['node'], parameters['device'])
 
             # set gradients to zero
             optimizer.zero_grad() 
@@ -164,9 +199,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['s1_validation'], None, parameters['non_e_id'], parameters)
-
-                neural_network_input, target_sparse = garther_Minkowski_input(input_data, output_data, parameters['node'], parameters['device'])
+                neural_network_input, target_sparse = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'validation', parameters['file_names_validation'], parameters['non_e_id'], parameters)
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -223,11 +256,11 @@ def train_model(parameters):
     return train_loss_history, val_loss_history
 
 def predict(parameters):
-    n_out_channel = 1 # 1: 1 focal, 2: 2 focal
+    n_out_channel = 1
 
     parameters['model'].eval()
 
-    n_test_samples = len(parameters['s1_test'])
+    n_test_samples = len(parameters['file_names_test'])
     n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
     all_predictions = []
@@ -240,9 +273,7 @@ def predict(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            input_data, output_data = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], None, parameters['non_e_id'], parameters)
-            
-            neural_network_input, _ = garther_Minkowski_input(input_data, output_data, parameters['node'], parameters['device'])
+            neural_network_input, _ = input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['file_names_test'], parameters['non_e_id'], parameters)
 
             # forward pass
             outputs = parameters['model'](neural_network_input)

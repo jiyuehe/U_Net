@@ -109,6 +109,10 @@ with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as 
          elif current_section == 'test':
             file_names_test.append(line)
 
+parameters['file_names_train'] = file_names_train
+parameters['file_names_validation'] = file_names_validation
+parameters['file_names_test'] = file_names_test
+
 print(f'n_train: {len(file_names_train)}, n_validation: {len(file_names_validation)}, n_test: {len(file_names_test)}')
 
 #%%
