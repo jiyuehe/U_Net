@@ -23,10 +23,11 @@ import modules
 
 import torch
 import numpy as np
-#%matplotlib tk 
-# make the Matplotlib plot pop up in a window instead of inline in the Jupyter notebook when debugging; change to %matplotlib inline if want to show plots in the notebook
 import matplotlib.pyplot as plt 
 from torchview import draw_graph # for visualizing the neural network model architecture
+
+#%matplotlib tk 
+# make the Matplotlib plot pop up in a window instead of inline in the Jupyter notebook when debugging; change to %matplotlib inline if want to show plots in the notebook
 
 #%%
 # parameters
@@ -55,17 +56,13 @@ data_type = '1focal' # '1focal' or '2focal'
 
 # geometry
 if parameters['geometry_flag'] == 0:
-   map_file_name = script_dir.parent / 'data' / 'sheet.npy'
-   data_folder_name = '2d data, 2 focal 2 location 15ms apart'
-   parameters['result_folder'] = script_dir / 'result_2d'
+   map_file_name = ''
+   data_folder_name = ''
+   parameters['result_folder'] = ''
    parameters['grid_height'] = 128 # do not change
    parameters['grid_width'] = 128 # do not change
 elif parameters['geometry_flag'] == 1:
-   # name_prefix = '102_1-lagood'
-   name_prefix = '101_1-LA FAM1'
-
-   map_file_name = script_dir.parent / 'data' / f'{name_prefix}_processed_map_refined.npz'
-   data_folder_name = 'one_focal'
+   parameters['data_folder'] = Path('/home/j/Desktop/hdd/simulation_results')
    parameters['result_folder'] = script_dir / 'result'
    parameters['result_folder'].mkdir(exist_ok=True)
    
@@ -73,12 +70,99 @@ elif parameters['geometry_flag'] == 1:
    parameters['grid_width'] = [] # unused; for code compatibility
 
 #%%
-if parameters['geometry_flag'] in [1, 4]:
+train_validation_test_file_names = 'train_validation_test_file_names.txt'
+if not (parameters['data_folder'] / train_validation_test_file_names).exists(): # if file not exist
+   # grab file names of the simulation results
+   simulation_files = list(parameters['data_folder'].glob('*.npz'))
+
+   n_samples = len(simulation_files)
+
+   # randomly split into training, validation, and testing
+   perm = np.random.permutation(n_samples)
+
+   n_train = int(0.8 * n_samples)
+   n_val = int(0.1 * n_samples)
+   n_test = n_samples - n_train - n_val
+
+   file_id_train = perm[:n_train]
+   file_id_validation = perm[n_train:n_train + n_val]
+   file_id_test = perm[n_train + n_val:]
+
+   # write a text file to save the file names of the training, validation and test data 
+   with open(parameters['data_folder'] / train_validation_test_file_names, 'w') as f:
+      f.write('train:\n')
+      for idx in file_id_train:
+         f.write(f'{simulation_files[idx].name}\n')
+      f.write('validation:\n')
+      for idx in file_id_validation:
+         f.write(f'{simulation_files[idx].name}\n')
+      f.write('test:\n')
+      for idx in file_id_test:
+         f.write(f'{simulation_files[idx].name}\n')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
+# create the U-Net model
+if parameters['geometry_flag'] == 1:
    try:
       import MinkowskiEngine as ME # https://nvidia.github.io/MinkowskiEngine/overview.html
    except ImportError:
       print('MinkowskiEngine is not installed.')
       pass
+
+parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if parameters['geometry_flag'] == 0:
+   parameters['model'] = modules.unet.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
+elif parameters['geometry_flag'] == 1:
+   try: 
+      parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints']+1, out_channels=1,D=3).to(parameters['device']) 
+      # D is the dimension of the input data
+      # in_channels is n_timepoints channels for the electrogram, plus 1 channel as an indicator for electrode nodes (1 for electrode nodes, 0 for non-electrode nodes)
+      # out_channels is 1 for the predicted activation time map
+   except Exception as e:
+      print('MinkowskiEngine is not installed.')
+      pass
+
+debug_flag = 0
+if debug_flag == 1:
+   print(f'Model created with {sum(p.numel() for p in parameters["model"].parameters())} parameters')
+
+   if parameters['geometry_flag'] == 0:
+      model_graph = draw_graph(
+         parameters['model'],
+         input_size=(parameters['batch_size'], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width']),
+         graph_dir='TB',             
+         roll=True, # hide internal ops
+      )
+      g = model_graph.visual_graph
+      g.attr(
+         dpi="300",
+         fontname="Helvetica",
+         fontsize="24",
+         ranksep="0.5", # spacing between layers
+         nodesep="0.5", # spacing between nodes
+      )
+      model_graph.visual_graph.render(parameters['result_folder'] / 'unet_torchview', format='png', cleanup=True)
+   elif parameters['geometry_flag'] == 1:
+      # torchview does not support MinkowskiEngine SparseTensor
+      # use print to show model architecture instead
+      print(parameters['model'])
 
 #%%
 # load geometry
@@ -118,50 +202,11 @@ if debug_plot == 1:
    plt.show()
 
 #%%
-# load the index file
 if parameters['geometry_flag'] == 0:
    parameters['data_folder'] = Path('/home/j/Desktop/hdd') / data_folder_name
-elif parameters['geometry_flag'] in [1, 4]:
+elif parameters['geometry_flag'] == 1:
    parameters['data_folder'] = Path('/data') / data_folder_name # this is when using the MinkowskiEngine docker container
 
-#%%
-# create the U-Net model
-parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if parameters['geometry_flag'] == 0:
-   parameters['model'] = modules.unet.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
-elif parameters['geometry_flag'] in [1, 4]:
-   try: 
-      parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints'], out_channels=1,D=3).to(parameters['device']) # D is the dimension of the input data
-   except Exception as e:
-      print('MinkowskiEngine is not installed.')
-      pass
-
-debug_flag = 0
-if debug_flag == 1:
-   print(f'Model created with {sum(p.numel() for p in parameters["model"].parameters())} parameters')
-
-   if parameters['geometry_flag'] == 0:
-      model_graph = draw_graph(
-         parameters['model'],
-         input_size=(parameters['batch_size'], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width']),
-         graph_dir='TB',             
-         roll=True, # hide internal ops
-      )
-      g = model_graph.visual_graph
-      g.attr(
-         dpi="300",
-         fontname="Helvetica",
-         fontsize="24",
-         ranksep="0.5", # spacing between layers
-         nodesep="0.5", # spacing between nodes
-      )
-      model_graph.visual_graph.render(parameters['result_folder'] / 'unet_torchview', format='png', cleanup=True)
-   elif parameters['geometry_flag'] in [1, 4]:
-      # torchview does not support MinkowskiEngine SparseTensor
-      # use print to show model architecture instead
-      print(parameters['model'])
-
-#%%
 # load data file index
 data_type = '1focal' # '1focal' or '2focal'
 if data_type == '1focal':
@@ -176,18 +221,6 @@ if data_type == '1focal':
    # load test data file index
    n_files_to_use = 10 # -1: use all files; or specify a number
    parameters['s1_test'] = modules.load_data_1focal.file_index(parameters['data_folder'] / 'test', n_files_to_use)
-elif data_type == '2focal':
-   # load training data file index
-   n_files_to_use = -1 # -1: use all files; or specify a number
-   parameters['s1_train'], parameters['s2_train'] = modules.load_data.file_index(parameters['data_folder'] / 'train', n_files_to_use)
-
-   # load validation data file index
-   n_files_to_use = -1 # -1: use all files; or specify a number
-   parameters['s1_validation'], parameters['s2_validation'] = modules.load_data.file_index(parameters['data_folder'] / 'validation', n_files_to_use)
-
-   # load test data file index
-   n_files_to_use = 10 # -1: use all files; or specify a number
-   parameters['s1_test'], parameters['s2_test'] = modules.load_data.file_index(parameters['data_folder'] / 'test', n_files_to_use)
 
 print(f'n_train: {len(parameters["s1_train"])}, n_validation: {len(parameters["s1_validation"])}, n_test: {len(parameters["s1_test"])}')
 
