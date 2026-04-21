@@ -111,32 +111,6 @@ with open(parameters['data_folder'] / train_validation_test_file_names, 'r') as 
 
 print(f'n_train: {len(file_names_train)}, n_validation: {len(file_names_validation)}, n_test: {len(file_names_test)}')
 
-# load the data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #%%
 # create the U-Net model
 try:
@@ -146,8 +120,6 @@ except ImportError:
    pass
 
 parameters['device'] = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if parameters['geometry_flag'] == 0:
-   parameters['model'] = modules.unet_2d.UNet(in_channels=parameters['n_timepoints'], out_channels=2).to(parameters['device'])
 
 try: 
    parameters['model'] = modules.unet_minkowski.MinkowskiUNet(in_channels=parameters['n_timepoints']+1, out_channels=1,D=3).to(parameters['device']) 
@@ -162,26 +134,36 @@ debug_flag = 0
 if debug_flag == 1:
    print(f'Model created with {sum(p.numel() for p in parameters["model"].parameters())} parameters')
 
-   if parameters['geometry_flag'] == 0:
-      model_graph = draw_graph(
-         parameters['model'],
-         input_size=(parameters['batch_size'], parameters['n_timepoints'], parameters['grid_height'], parameters['grid_width']),
-         graph_dir='TB',             
-         roll=True, # hide internal ops
-      )
-      g = model_graph.visual_graph
-      g.attr(
-         dpi="300",
-         fontname="Helvetica",
-         fontsize="24",
-         ranksep="0.5", # spacing between layers
-         nodesep="0.5", # spacing between nodes
-      )
-      model_graph.visual_graph.render(parameters['result_folder'] / 'unet_torchview', format='png', cleanup=True)
-   elif parameters['geometry_flag'] == 1:
-      # torchview does not support MinkowskiEngine SparseTensor
-      # use print to show model architecture instead
-      print(parameters['model'])
+   # torchview does not support MinkowskiEngine SparseTensor
+   # use print to show model architecture instead
+   print(parameters['model'])
+
+parameters['data_folder'] = Path('/simulation_results') # this is for the MinkowskiEngine docker container
+
+#%%
+# train the model
+if train_flag == 1:
+   print('train model')
+
+   if continue_training == 1: # load pre-trained model to continue training
+      model_path = parameters['result_folder'] / 'best_unet_model.pth'
+      print(f'loading pre-trained model from {model_path}')
+      parameters['model'].load_state_dict(torch.load(model_path, map_location=parameters['device']))
+
+   # train the model
+   train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
+
+# plot loss history
+modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
+
+
+
+
+
+
+
+
+
 
 #%%
 # load geometry
@@ -219,24 +201,6 @@ if debug_plot == 1:
    ax.set_axis_off()
    plt.tight_layout()
    plt.show()
-
-parameters['data_folder'] = Path('/data') / data_folder_name # this is when using the MinkowskiEngine docker container
-
-#%%
-# train the model
-if train_flag == 1:
-   print('train model')
-
-   if continue_training == 1: # load pre-trained model to continue training
-      model_path = parameters['result_folder'] / 'best_unet_model.pth'
-      print(f'loading pre-trained model from {model_path}')
-      parameters['model'].load_state_dict(torch.load(model_path, map_location=parameters['device']))
-
-   # train the model
-   train_loss_history, val_loss_history = modules.train_predict.train_model(parameters)
-
-# plot loss history
-modules.result_analysis.plot_loss_history(parameters['result_folder'], parameters['s1_train'])
 
 #%%
 if train_flag == 0:

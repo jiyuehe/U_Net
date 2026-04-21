@@ -16,7 +16,7 @@ import numpy as np
 from pathlib import Path
 import torch
 
-def _normalize_to_unit_interval(values):
+def normalize_to_unit_interval(values):
     min_value = np.min(values)
     max_value = np.max(values)
     range_value = max_value - min_value
@@ -42,7 +42,7 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
             expected_key = 'electrogram_unipolar'
         
         x = payload[expected_key]
-        x = _normalize_to_unit_interval(x)
+        x = normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
         
         x_temp.append(x)
@@ -50,12 +50,12 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
         # file_name_y_1 = Path(data_folder) / f'lat_{s1_index[i]}.npz'
         # y_1 = np.load(file_name_y_1)['lat']
         y_1 = payload['lat']
-        y_1 = _normalize_to_unit_interval(y_1)
+        y_1 = normalize_to_unit_interval(y_1)
 
         if s2_index is not None:
             file_name_y_2 = Path(data_folder) / f'lat_{s2_index[i]}.npz'
             y_2 = np.load(file_name_y_2)['lat']
-            y_2 = _normalize_to_unit_interval(y_2)
+            y_2 = normalize_to_unit_interval(y_2)
 
             y = np.vstack((y_1, y_2)) # shape (2, nodes)
         else:
