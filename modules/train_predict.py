@@ -33,16 +33,13 @@ def normalize_to_unit_interval(values):
     
     return ((values - min_value) / range_value).astype(np.float32)
 
-def load_input_and_target(start_idx, end_idx, data_folder_simulation, file_names, non_e_id, parameters):
+def load_input_and_target(start_idx, end_idx, file_names, parameters):
     data_folder_simulation = parameters['data_folder_simulation'] 
     data_folder_patient = parameters['data_folder_patient']
-    
-    # NOTE: 
-    # the input argument 'non_e_id' has to be provided, because it is not necessary equal to parameters['non_e_id']
-    # for example, when plotting mix rhythm activation time map, can set 'non_e_id' to an empty list to use all nodes
 
     x_temp = []
     y_temp = []
+    nodes_list = []
     for i in range(start_idx, end_idx):
         # load patient data to grab the electrode voxel ids
         name_prefix = file_names[i].split("_simulation_results_")[0]
@@ -61,15 +58,25 @@ def load_input_and_target(start_idx, end_idx, data_folder_simulation, file_names
 
         voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
         voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
-        node = voxel3mm_1mm_spacing
+        node = voxel3mm_1mm_spacing # shape (n_nodes, 3)
 
+        b = i - start_idx
+        n_nodes = node.shape[0]
+        batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
+        sample_nodes = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # convert xyz to integers. shape (n_nodes, 4)
+        nodes_list.append(sample_nodes)
 
         # load simulation results
         simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
         
-        x = simulation_results['electrogram_unipolar']
+        x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
         x = normalize_to_unit_interval(x)
         x[:, non_e_id] = 0
+
+        # add a binary channel to indicate non-electrode nodes as a mask
+        new_column = np.ones((x.shape[0], 1), dtype=np.float32)
+        new_column[:, non_e_id] = 0
+        x = np.concatenate((x, new_column), axis=1)
         
         x_temp.append(x)
         
@@ -82,42 +89,22 @@ def load_input_and_target(start_idx, end_idx, data_folder_simulation, file_names
 
     # stack into tensors
     input_data = torch.from_numpy(np.stack(x_temp, axis=0)) # shape (batch, t, n_node)
-    output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, n_out_channel, n_node)
-
-    # grab time slices
-    input_data = input_data[:, parameters['t_start']:parameters['t_end']:parameters['time_step'], :]
-
     input_data = input_data.float().to(parameters['device']) # ensure float32
+
+    output_data = torch.from_numpy(np.stack(y_temp, axis=0)) # shape (batch, n_out_channel, n_node)
     output_data = output_data.float().to(parameters['device']) # ensure float32
 
-    # create nodes_batch for MinkowskiEngine: shape (N_total, 4) where each row is [batch_idx, x, y, z]
-    # node has shape (n_nodes, 3)
-    node = parameters['node']
-    device = parameters['device']
-
-    nodes_list = []
-    current_batch_size = input_data.shape[0]
-    for b in range(current_batch_size):
-        n_nodes = node.shape[0]
-
-        batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
-        sample_nodes = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # convert xyz to integers. shape (n_nodes, 4)
-        nodes_list.append(sample_nodes)
-    nodes_batch = torch.cat(nodes_list, dim=0).to(device)  # (batch * n_nodes, 4)
+    nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4), where each row is [batch_idx, x, y, z]
 
     # reshape input data: (batch, t, nodes) -> (batch * nodes, t)
     feats_batch = input_data.permute(0, 2, 1).reshape(-1, input_data.shape[1])
     
     # reshape output data: (batch, n_node) -> (batch * n_node, 1)
-    # or (batch, n_out_channel, n_node) -> (batch * n_node, n_out_channel)
-    if output_data.dim() == 2:
-        targets_batch = output_data.reshape(-1, 1)
-    else:
-        targets_batch = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
+    targets_batch = output_data.reshape(-1, 1)
 
     # create MinkowskiEngine sparse tensor
-    neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=device)
-    target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=device)
+    neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=parameters['device'])
+    target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=parameters['device'])
 
     return neural_network_input, target_sparse
 
@@ -179,7 +166,7 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_train, parameters['non_e_id'], parameters)
+            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_train, parameters)
             # print(output_data.shape)
 
             # set gradients to zero
@@ -210,6 +197,10 @@ def train_model(parameters):
         parameters['model'].eval() # set model to evaluation mode
         val_loss = 0.0
         
+        # shuffle validation indices at the start of each epoch
+        perm = np.random.permutation(n_validation_samples)
+        file_names_validation = parameters['file_names_validation'][perm]
+
         with torch.no_grad(): # disables gradient computation
         # why disable gradients during validation?
         # validation does not require gradient calculations since we are not updating model weights.
@@ -221,7 +212,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, parameters['data_folder_simulation'], parameters['file_names_validation'], parameters['non_e_id'], parameters)
+                neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_validation, parameters)
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -277,61 +268,61 @@ def train_model(parameters):
 
     return train_loss_history, val_loss_history
 
-def predict(parameters):
-    n_out_channel = 1
+# def predict(parameters):
+#     n_out_channel = 1
 
-    parameters['model'].eval()
+#     parameters['model'].eval()
 
-    n_test_samples = len(parameters['file_names_test'])
-    n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
+#     n_test_samples = len(parameters['file_names_test'])
+#     n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
-    all_predictions = []
-    all_truths = []
-    with torch.no_grad():
-        for batch_idx in range(n_test_batches):
-            print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
+#     all_predictions = []
+#     all_truths = []
+#     with torch.no_grad():
+#         for batch_idx in range(n_test_batches):
+#             print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
 
-            start_idx = batch_idx * parameters['batch_size']
-            end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
+#             start_idx = batch_idx * parameters['batch_size']
+#             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
-            # load data
-            neural_network_input, _ = load_input_and_target(start_idx, end_idx, parameters['data_folder_simulation'], parameters['file_names_test'], parameters['non_e_id'], parameters)
+#             # load data
+#             neural_network_input, _ = load_input_and_target(start_idx, end_idx, file_names, parameters)
 
-            # forward pass
-            outputs = parameters['model'](neural_network_input)
+#             # forward pass
+#             outputs = parameters['model'](neural_network_input)
 
-            current_batch_size = input_data.shape[0]
+#             current_batch_size = input_data.shape[0]
 
-            # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
-            # find the minimum coordinate for dense conversion (required if any coordinate is negative)
-            min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
+#             # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
+#             # find the minimum coordinate for dense conversion (required if any coordinate is negative)
+#             min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
             
-            # extract predictions at shifted coordinates
-            dense = outputs.dense(min_coordinate=min_coord)
-            prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
-            n_nodes = parameters['node'].shape[0]
-            shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
-            prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
-            for b in range(current_batch_size):
-                for n, (x, y, z) in enumerate(shifted_coord):
-                    prediction[b, :, n] = prediction_dense[b, :, x, y, z]
-            prediction = torch.tensor(prediction)
+#             # extract predictions at shifted coordinates
+#             dense = outputs.dense(min_coordinate=min_coord)
+#             prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
+#             n_nodes = parameters['node'].shape[0]
+#             shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
+#             prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
+#             for b in range(current_batch_size):
+#                 for n, (x, y, z) in enumerate(shifted_coord):
+#                     prediction[b, :, n] = prediction_dense[b, :, x, y, z]
+#             prediction = torch.tensor(prediction)
 
-            # reshape output data: (batch, n_node) -> (batch * n_node, 1)
-            # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
-            if output_data.dim() == 2:
-                truth = output_data.reshape(-1, 1)
-            else:
-                truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
-            # reshape truth to (current_batch_size, n_out_channel, n_nodes)
-            truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
-            truth = truth.cpu()
+#             # reshape output data: (batch, n_node) -> (batch * n_node, 1)
+#             # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
+#             if output_data.dim() == 2:
+#                 truth = output_data.reshape(-1, 1)
+#             else:
+#                 truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
+#             # reshape truth to (current_batch_size, n_out_channel, n_nodes)
+#             truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
+#             truth = truth.cpu()
 
-            all_predictions.append(prediction)
-            all_truths.append(truth)
+#             all_predictions.append(prediction)
+#             all_truths.append(truth)
 
-        # concatenate all batches
-        predictions = torch.cat(all_predictions, dim=0).numpy()
-        truths = torch.cat(all_truths, dim=0).numpy()
+#         # concatenate all batches
+#         predictions = torch.cat(all_predictions, dim=0).numpy()
+#         truths = torch.cat(all_truths, dim=0).numpy()
 
-    return predictions, truths
+#     return predictions, truths
