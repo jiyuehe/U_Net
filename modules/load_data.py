@@ -36,10 +36,7 @@ def input_output_data(start_idx, end_idx, data_folder, data_subfolder, s1_index,
         
         payload = dict(np.load(file_name_x, allow_pickle=False))
         
-        if parameters['data_flag'] == 0:
-            expected_key = 'action_potential_voxel3mm'
-        elif parameters['data_flag'] == 1:
-            expected_key = 'electrogram_unipolar'
+        expected_key = 'electrogram_unipolar'
         
         x = payload[expected_key]
         x = normalize_to_unit_interval(x)
