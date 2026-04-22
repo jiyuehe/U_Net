@@ -46,13 +46,13 @@ parameters['epochs'] = 100 # maximum epochs (training may stop earlier with earl
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # mode settings
-train_predict_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
-continue_training = 0 # 1: load best_unet_model.pth and continue training; 0: train from scratch
+train_predict_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
 
-parameters['data_folder_simulation'] = Path('/home/j/Desktop/hdd/simulation_results')
-parameters['data_folder_patient'] = Path('/home/j/Desktop/hdd/patient_data')
+parameters['data_folder_simulation'] = Path('/home/j/Desktop/hdd/share_folder/simulation_results')
+parameters['data_folder_patient'] = Path('/home/j/Desktop/hdd/share_folder/patient_data')
 parameters['result_folder'] = script_dir / 'result'
 parameters['result_folder'].mkdir(exist_ok=True)
 

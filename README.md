@@ -11,7 +11,7 @@ tmux attach -t 0
 
 docker run --gpus all -it \
     -v /home/j/Desktop/ssd/git:/workspace \
-    -v /home/j/Desktop/hdd:/home/j/Desktop/hdd \
+    -v /home/j/Desktop/hdd/share_folder:/home/j/Desktop/hdd/share_folder \
     -p 8888:8888 \
     my_minkowski_image:latest /bin/bash
 
