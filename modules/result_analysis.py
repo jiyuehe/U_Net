@@ -25,8 +25,7 @@ if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
 import PyHeartSim.common as common
 
-import modules as parent_codes
-
+import modules
 import matplotlib.pyplot as plt 
 import numpy as np
 
@@ -92,7 +91,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         e_id = np.arange(n_nodes, dtype=np.int64)
         non_e_id = []
 
-    input_data, _ = parent_codes.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], non_e_id, parameters)
+    input_data, _ = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], non_e_id, parameters)
 
     # voxelize the nodes (prepare grid for all samples)
     if parameters['geometry_flag'] in [1, 4]:

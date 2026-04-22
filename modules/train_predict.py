@@ -260,7 +260,7 @@ def train_model(parameters):
 
     return train_loss_history, val_loss_history
 
-def predict(parameters):
+def predict_simulation(parameters):
     n_out_channel = 1
 
     parameters['model'].eval()

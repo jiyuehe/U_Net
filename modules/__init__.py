@@ -15,3 +15,4 @@
 from . import result_analysis
 from . import train_predict
 from . import unet_minkowski
+from . import utility
