@@ -78,7 +78,7 @@ def scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, 
     elif plot_scatter_voxel_flag == 0:
         voxel_color = np.zeros((*voxels.shape, 3))
         voxel_color[grid_indices[:,0], grid_indices[:,1], grid_indices[:,2]] = converted_color
-        ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=True)
+        ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=False)
 
 def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters):
     plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
@@ -175,6 +175,8 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         selected_indices = np.arange(n_samples)
 
     for sample_id in selected_indices:
+        print(f'plotting sample {sample_id+1}/{n_samples}')
+
         # load patient data to grab the electrode voxel ids
         name_prefix = parameters['file_names_test'][sample_id].split("_simulation_results_")[0]
         data = np.load(parameters['data_folder_patient'] / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
