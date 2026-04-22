@@ -260,61 +260,61 @@ def train_model(parameters):
 
     return train_loss_history, val_loss_history
 
-# def predict(parameters):
-#     n_out_channel = 1
+def predict(parameters):
+    n_out_channel = 1
 
-#     parameters['model'].eval()
+    parameters['model'].eval()
 
-#     n_test_samples = len(parameters['file_names_test'])
-#     n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
+    n_test_samples = len(parameters['file_names_test'])
+    n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
-#     all_predictions = []
-#     all_truths = []
-#     with torch.no_grad():
-#         for batch_idx in range(n_test_batches):
-#             print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
+    all_predictions = []
+    all_truths = []
+    with torch.no_grad():
+        for batch_idx in range(n_test_batches):
+            print(f'  Prediction batch {batch_idx+1}/{n_test_batches}')
 
-#             start_idx = batch_idx * parameters['batch_size']
-#             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
+            start_idx = batch_idx * parameters['batch_size']
+            end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
-#             # load data
-#             neural_network_input, _ = load_input_and_target(start_idx, end_idx, file_names, parameters)
+            # load data
+            neural_network_input, output_data = load_input_and_target(start_idx, end_idx, parameters['file_names_test'], parameters)
 
-#             # forward pass
-#             outputs = parameters['model'](neural_network_input)
+            # forward pass
+            outputs = parameters['model'](neural_network_input)
 
-#             current_batch_size = input_data.shape[0]
+            current_batch_size = input_data.shape[0]
 
-#             # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
-#             # find the minimum coordinate for dense conversion (required if any coordinate is negative)
-#             min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
+            # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
+            # find the minimum coordinate for dense conversion (required if any coordinate is negative)
+            min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
             
-#             # extract predictions at shifted coordinates
-#             dense = outputs.dense(min_coordinate=min_coord)
-#             prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
-#             n_nodes = parameters['node'].shape[0]
-#             shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
-#             prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
-#             for b in range(current_batch_size):
-#                 for n, (x, y, z) in enumerate(shifted_coord):
-#                     prediction[b, :, n] = prediction_dense[b, :, x, y, z]
-#             prediction = torch.tensor(prediction)
+            # extract predictions at shifted coordinates
+            dense = outputs.dense(min_coordinate=min_coord)
+            prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
+            n_nodes = parameters['node'].shape[0]
+            shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
+            prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
+            for b in range(current_batch_size):
+                for n, (x, y, z) in enumerate(shifted_coord):
+                    prediction[b, :, n] = prediction_dense[b, :, x, y, z]
+            prediction = torch.tensor(prediction)
 
-#             # reshape output data: (batch, n_node) -> (batch * n_node, 1)
-#             # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
-#             if output_data.dim() == 2:
-#                 truth = output_data.reshape(-1, 1)
-#             else:
-#                 truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
-#             # reshape truth to (current_batch_size, n_out_channel, n_nodes)
-#             truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
-#             truth = truth.cpu()
+            # reshape output data: (batch, n_node) -> (batch * n_node, 1)
+            # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
+            if output_data.dim() == 2:
+                truth = output_data.reshape(-1, 1)
+            else:
+                truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
+            # reshape truth to (current_batch_size, n_out_channel, n_nodes)
+            truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
+            truth = truth.cpu()
 
-#             all_predictions.append(prediction)
-#             all_truths.append(truth)
+            all_predictions.append(prediction)
+            all_truths.append(truth)
 
-#         # concatenate all batches
-#         predictions = torch.cat(all_predictions, dim=0).numpy()
-#         truths = torch.cat(all_truths, dim=0).numpy()
+        # concatenate all batches
+        predictions = torch.cat(all_predictions, dim=0).numpy()
+        truths = torch.cat(all_truths, dim=0).numpy()
 
-#     return predictions, truths
+    return predictions, truths
