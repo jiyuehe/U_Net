@@ -268,6 +268,8 @@ def predict_simulation(parameters):
     n_test_samples = len(parameters['file_names_test'])
     n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
+    file_names_test = np.array(parameters['file_names_test'])
+
     all_predictions = []
     all_truths = []
     with torch.no_grad():
@@ -278,43 +280,43 @@ def predict_simulation(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            neural_network_input, output_data = load_input_and_target(start_idx, end_idx, parameters['file_names_test'], parameters)
+            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_test, parameters)
 
             # forward pass
             outputs = parameters['model'](neural_network_input)
 
-            current_batch_size = input_data.shape[0]
+            current_batch_size = end_idx - start_idx
 
-            # convert to dense tensor: shape (batch, C, X, Y, Z) for 3D
-            # find the minimum coordinate for dense conversion (required if any coordinate is negative)
-            min_coord = torch.IntTensor(np.array(parameters['node']).min(axis=0).flatten())
-            
-            # extract predictions at shifted coordinates
+            # get coordinates from the sparse tensor output: shape (batch * n_nodes, 4) — [batch_idx, x, y, z]
+            coords = outputs.C.cpu()
+            target_coords = target_sparse.C.cpu()
+
+            # compute min coordinate for dense conversion (required if any coordinate is negative)
+            min_coord = coords[:, 1:].min(dim=0).values  # shape: (3,)
+
+            # extract predictions per sample (n_nodes may differ per sample)
             dense = outputs.dense(min_coordinate=min_coord)
             prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
-            n_nodes = parameters['node'].shape[0]
-            shifted_coord = np.array(parameters['node']).astype(int) - min_coord.numpy() # shift node by min_coord for correct indexing
-            prediction = np.zeros((current_batch_size, n_out_channel, n_nodes), dtype=np.float32)
+
             for b in range(current_batch_size):
-                for n, (x, y, z) in enumerate(shifted_coord):
-                    prediction[b, :, n] = prediction_dense[b, :, x, y, z]
-            prediction = torch.tensor(prediction)
+                # get spatial coords for this sample
+                mask = coords[:, 0] == b
+                sample_coords = (coords[mask, 1:] - min_coord).numpy()  # (n_nodes_b, 3)
+                n_nodes_b = sample_coords.shape[0]
 
-            # reshape output data: (batch, n_node) -> (batch * n_node, 1)
-            # or (batch, n_out_channel, nodes) -> (batch * nodes, n_out_channel)
-            if output_data.dim() == 2:
-                truth = output_data.reshape(-1, 1)
-            else:
-                truth = output_data.permute(0, 2, 1).reshape(-1, output_data.shape[1])
-            # reshape truth to (current_batch_size, n_out_channel, n_nodes)
-            truth = truth.reshape(current_batch_size, n_nodes, n_out_channel).permute(0, 2, 1)
-            truth = truth.cpu()
+                # extract predictions at each node coordinate
+                pred_b = np.zeros((n_out_channel, n_nodes_b), dtype=np.float32)
+                for n, (x, y, z) in enumerate(sample_coords):
+                    pred_b[:, n] = prediction_dense[b, :, x, y, z]
+                all_predictions.append(pred_b)  # shape: (n_out_channel, n_nodes_b)
 
-            all_predictions.append(prediction)
-            all_truths.append(truth)
+                # extract truth features for this sample
+                target_mask = target_coords[:, 0] == b
+                truth_b = target_sparse.F.cpu()[target_mask, :].T  # shape: (n_out_channel, n_nodes_b)
+                all_truths.append(truth_b)
 
-        # concatenate all batches
-        predictions = torch.cat(all_predictions, dim=0).numpy()
-        truths = torch.cat(all_truths, dim=0).numpy()
+        # return as lists since n_nodes may differ per sample
+        predictions = all_predictions  # list of (n_out_channel, n_nodes_all_samples) arrays
+        truths = all_truths            # list of (n_out_channel, n_nodes_all_samples) tensors
 
     return predictions, truths

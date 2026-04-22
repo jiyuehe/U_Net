@@ -45,7 +45,7 @@ parameters['epochs'] = 100 # maximum epochs (training may stop earlier with earl
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs
 
 # mode settings
-train_predict_flag = 1 # 1: will train the model; 0: only do prediction with the pre-trained model
+train_predict_flag = 0 # 1: will train the model; 0: only do prediction with the pre-trained model
 continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 data_type = '1focal' # '1focal' or '2focal'
@@ -117,7 +117,10 @@ if train_predict_flag == 0:
 
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
       predicted_data, truth_data = modules.train_predict.predict_simulation(parameters)
-   # elif testing_data_flag == 1:
+      # Convert all elements to numpy arrays if they are tensors
+      predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]
+      truth_data = [x.numpy() if hasattr(x, 'numpy') else x for x in truth_data]
+      
       # parameters['model'].eval()
 
       # n_test_samples = 1
@@ -211,13 +214,13 @@ if train_predict_flag == 0:
       #    # concatenate all batches
       #    predicted_data = torch.cat(all_predictions, dim=0).numpy()
 
-   # save the prediction results
-   np.save(parameters['result_folder'] / f'predictions.npy', predicted_data)
+      # # save the prediction results
+      # np.save(parameters['result_folder'] / f'predictions.npy', predicted_data)
 
    #%%
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
       start_idx = 0
-      end_idx = len(parameters['s1_test'])
+      end_idx = len(parameters['file_names_test'])
 
       modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 

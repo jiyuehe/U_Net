@@ -19,6 +19,7 @@ os.chdir(script_dir) # change the working directory
 script_dir = Path(script_dir)
 
 # add the workspace root to Python path
+from platform import node
 import sys
 workspace_root = Path().resolve().parent.parent # Path().resolve() returns an absolute path, the full path
 if str(workspace_root) not in sys.path:
@@ -80,7 +81,7 @@ def scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, 
         ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=True)
 
 def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters):
-    plot_scatter_voxel_flag = 1 # 1: scatter plot; 0: voxel plot
+    plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
 
     # load input data
     if sparse_electrode_flag == 1:
@@ -162,17 +163,39 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         common.crop_image.execute(image_file_name)
 
 def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters):
-    plot_scatter_voxel_flag = 1 # 1: scatter plot; 0: voxel plot
+    plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
     sparse_electrode_flag = 0 # color on all nodes
 
-    # voxelize the nodes (prepare grid for all samples)
-    if parameters['geometry_flag'] in [1, 4]:
-        node = parameters['node']
-        voxels, grid_indices = voxelize_nodes(node)
-        e_id = np.arange(node.shape[0], dtype=np.int64)
-        non_e_id = []
+    # Uniformly select 10 samples to plot
+    n_samples = len(parameters['file_names_test'])
+    n_plot = min(10, n_samples)
+    if n_samples > n_plot:
+        selected_indices = np.linspace(0, n_samples - 1, n_plot, dtype=int)
+    else:
+        selected_indices = np.arange(n_samples)
 
-    for sample_id in range(len(parameters['s1_test'])):
+    for sample_id in selected_indices:
+        # load patient data to grab the electrode voxel ids
+        name_prefix = parameters['file_names_test'][sample_id].split("_simulation_results_")[0]
+        data = np.load(parameters['data_folder_patient'] / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
+        map_data = {k: data[k] for k in data.files}
+
+        # find the good electrode nodes that have good signals
+        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
+        act = map_data['activation_uni']
+        good_id = [i for i, x in enumerate(act) if x != 0]
+
+        good_e_id = voxel3mm_id_of_electrode[good_id]
+        n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
+        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
+
+        voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
+        voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
+        node = voxel3mm_1mm_spacing # shape (n_nodes, 3)
+
+        e_id = np.arange(node.shape[0], dtype=np.int64)
+        voxels, grid_indices = voxelize_nodes(node)
+
         # for rhythm_id in range(truth_data[sample_id].shape[0]):
         data_truth = truth_data[sample_id].flatten()
         data_predicted = predicted_data[sample_id].flatten()
@@ -186,18 +209,14 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         converted_color = common.convert_value_to_red_blue(data_truth, data_min, data_max, data_threshold)
         
         fig = plt.figure(figsize=(8, 6), dpi=100)
-        if parameters['geometry_flag'] == 0:
-            color_image = converted_color.reshape((parameters['grid_height'], parameters['grid_width'], 3)) 
-            plt.imshow(color_image, origin='lower', interpolation='nearest')
-        elif parameters['geometry_flag'] in [1, 4]:
-            ax = plt.axes(projection='3d')
-            scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal(ax)
-            ax.view_init(elev=70, azim=-70)
+        ax = plt.axes(projection='3d')
+        scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
+        common.set_axes_equal(ax)
+        ax.view_init(elev=70, azim=-70)
         plt.axis('off')
         plt.tight_layout()
 
-        image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_lat_truth.png'
+        image_file_name = parameters['result_folder'] / f'{parameters["file_names_test"][sample_id]}_lat_truth.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
         common.crop_image(image_file_name)
@@ -208,18 +227,14 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         converted_color = common.convert_value_to_red_blue(data_predicted, data_min, data_max, data_threshold)
 
         fig = plt.figure(figsize=(8, 6), dpi=100)
-        if parameters['geometry_flag'] == 0:
-            color_image = converted_color.reshape((parameters['grid_height'], parameters['grid_width'], 3)) 
-            plt.imshow(color_image, origin='lower', interpolation='nearest')
-        elif parameters['geometry_flag'] in [1, 4]:
-            ax = plt.axes(projection='3d')
-            scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal(ax)
-            ax.view_init(elev=70, azim=-70)
+        ax = plt.axes(projection='3d')
+        scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
+        common.set_axes_equal(ax)
+        ax.view_init(elev=70, azim=-70)
         plt.axis('off')
         plt.tight_layout()
 
-        image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_lat_predict_MAE_{error_mae:.4f}.png'
+        image_file_name = parameters['result_folder'] / f'{parameters["file_names_test"][sample_id]}_lat_predict_MAE_{error_mae:.4f}.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
         common.crop_image(image_file_name)
