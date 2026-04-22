@@ -120,7 +120,7 @@ if train_predict_flag == 0:
       # Convert all elements to numpy arrays if they are tensors
       predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]
       truth_data = [x.numpy() if hasattr(x, 'numpy') else x for x in truth_data]
-      
+
       # parameters['model'].eval()
 
       # n_test_samples = 1
@@ -219,9 +219,6 @@ if train_predict_flag == 0:
 
    #%%
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
-      start_idx = 0
-      end_idx = len(parameters['file_names_test'])
-
       modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
 
 print('done')
