@@ -35,11 +35,11 @@ parameters = {}
 # time samples
 parameters['t_start'] = 0
 parameters['time_step'] = 1
-parameters['n_timepoints'] = 1000
+parameters['n_timepoints'] = 500
 parameters['t_end'] = parameters['t_start'] + parameters['n_timepoints'] * parameters['time_step']
 
 # training parameters
-parameters['batch_size'] = 32 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
+parameters['batch_size'] = 128 # number of training samples (electrograms-activation_maps pairs) are processed together in one pass during training
 parameters['learning_rate'] = 1e-4 # too small or too big are both bad
 parameters['epochs'] = 100 # maximum epochs (training may stop earlier with early stopping)
 parameters['early_stopping_patience'] = 6 # stop training if no improvement for this many epochs

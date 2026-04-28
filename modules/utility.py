@@ -13,7 +13,7 @@ def categorize_files_into_train_validation_test(data_folder_simulation):
         perm = np.random.permutation(n_samples)
 
         n_train = int(0.8 * n_samples)
-        n_val = int(0.1 * n_samples)
+        n_val = int(0.15 * n_samples)
 
         file_id_train = perm[:n_train]
         file_id_validation = perm[n_train:n_train + n_val]
