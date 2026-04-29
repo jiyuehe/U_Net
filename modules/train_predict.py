@@ -183,10 +183,15 @@ def predict(parameters, data_type):
 
     parameters['model'].eval()
 
-    n_test_samples = len(parameters['file_names_test'])
-    n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
-
+    # uniformly sample N test file names
+    N = 5
     file_names_test = np.array(parameters['file_names_test'])
+    if len(file_names_test) > N:
+        indices = np.linspace(0, len(file_names_test) - 1, N, dtype=int)
+        file_names_test = file_names_test[indices]
+
+    n_test_samples = len(file_names_test)
+    n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
 
     all_predictions = []
     all_truths = []
@@ -218,8 +223,8 @@ def predict(parameters, data_type):
 
             for b in range(current_batch_size):
                 # get spatial coords for this sample
-                mask = coords[:, 0] == b
-                sample_coords = (coords[mask, 1:] - min_coord).numpy()  # (n_nodes_b, 3)
+                id = coords[:, 0] == b
+                sample_coords = (coords[id, 1:] - min_coord).numpy()  # (n_nodes_b, 3)
                 n_nodes_b = sample_coords.shape[0]
 
                 # extract predictions at each node coordinate
@@ -233,8 +238,9 @@ def predict(parameters, data_type):
                 truth_b = target_sparse.F.cpu()[target_mask, :].T  # shape: (n_out_channel, n_nodes_b)
                 all_truths.append(truth_b)
 
-        # return as lists since n_nodes may differ per sample
-        predictions = all_predictions  # list of (n_out_channel, n_nodes_all_samples) arrays
-        truths = all_truths            # list of (n_out_channel, n_nodes_all_samples) tensors
 
-    return predictions, truths
+        # return as lists since n_nodes may differ per sample
+        predictions = all_predictions # list of (n_out_channel, n_nodes_all_samples) arrays
+        truths = all_truths # list of (n_out_channel, n_nodes_all_samples) tensors
+
+    return predictions, truths, file_names_test

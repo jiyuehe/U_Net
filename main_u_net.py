@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 
 #%%
 # mode settings
-train_predict_flag = 1 # 1: only do training; 0: only do prediction
+train_predict_flag = 0 # 1: only do training; 0: only do prediction
 testing_data_flag = 0 # 0: simulation data; 1: clinical data
 continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 
@@ -108,7 +108,7 @@ if train_predict_flag == 0:
    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
-      predicted_data, truth_data = modules.train_predict.predict(parameters, data_type='simulation')
+      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, data_type='simulation')
       # convert all elements to numpy arrays if they are tensors
       predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]
       truth_data = [x.numpy() if hasattr(x, 'numpy') else x for x in truth_data]
@@ -131,7 +131,7 @@ if train_predict_flag == 0:
 
    #%%
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
-      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters)
+      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters)
 
 print('done')
 

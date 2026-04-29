@@ -148,9 +148,6 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
             scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
             common.set_axes_equal(ax)
             ax.view_init(elev=70, azim=-70)
-        # ax.set_xlabel('X')
-        # ax.set_ylabel('Y')
-        # ax.set_zlabel('Z')
         plt.axis('off')
         plt.tight_layout()
 
@@ -162,23 +159,17 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         plt.close()
         common.crop_image.execute(image_file_name)
 
-def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, parameters):
+def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters):
     plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
     sparse_electrode_flag = 0 # color on all nodes
 
-    # Uniformly select 10 samples to plot
-    n_samples = len(parameters['file_names_test'])
-    n_plot = min(10, n_samples)
-    if n_samples > n_plot:
-        selected_indices = np.linspace(0, n_samples - 1, n_plot, dtype=int)
-    else:
-        selected_indices = np.arange(n_samples)
+    n_samples = len(predicted_data)
 
-    for sample_id in selected_indices:
+    for sample_id in np.arange(n_samples):
         print(f'plotting sample {sample_id+1}/{n_samples}')
 
         # load patient data to grab the electrode voxel ids
-        name_prefix = parameters['file_names_test'][sample_id].split("_simulation_results_")[0]
+        name_prefix = file_names_test[sample_id].split("_simulation_results_")[0]
         data = np.load(parameters['data_folder_patient'] / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
         map_data = {k: data[k] for k in data.files}
 
@@ -198,7 +189,6 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         e_id = np.arange(node.shape[0], dtype=np.int64)
         voxels, grid_indices = voxelize_nodes(node)
 
-        # for rhythm_id in range(truth_data[sample_id].shape[0]):
         data_truth = truth_data[sample_id].flatten()
         data_predicted = predicted_data[sample_id].flatten()
 
@@ -218,7 +208,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         plt.axis('off')
         plt.tight_layout()
 
-        image_file_name = parameters['result_folder'] / f'{parameters["file_names_test"][sample_id]}_lat_truth.png'
+        image_file_name = parameters['result_folder'] / f'{file_names_test[sample_id][:-4]}_lat_truth.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
         common.crop_image(image_file_name)
@@ -236,7 +226,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, par
         plt.axis('off')
         plt.tight_layout()
 
-        image_file_name = parameters['result_folder'] / f'{parameters["file_names_test"][sample_id]}_lat_predict_MAE_{error_mae:.4f}.png'
+        image_file_name = parameters['result_folder'] / f'{file_names_test[sample_id][:-4]}_lat_predict_MAE_{error_mae:.4f}.png'
         plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
         plt.close()
         common.crop_image(image_file_name)
