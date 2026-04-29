@@ -137,7 +137,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         data_max = np.nanmax(data)
         data_threshold = data_min-0.1
         converted_color = common.convert_value_to_red_blue(data, data_min, data_max, data_threshold)
-        converted_color[non_e_id,:] = 0.8 # set non-electrode nodes to grey
+        converted_color[non_e_id,:] = 0.5 # set non-electrode nodes to grey
 
         fig = plt.figure(figsize=(8, 6), dpi=100)
         if parameters['geometry_flag'] == 0:
@@ -225,7 +225,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
             invalid_mask = ~valid_mask
             if np.any(invalid_mask):
                 # Optionally set color for NaN voxels (e.g., gray or leave as zero)
-                voxel_color[grid_indices[invalid_mask,0], grid_indices[invalid_mask,1], grid_indices[invalid_mask,2], 3] = 0.1
+                voxel_color[grid_indices[invalid_mask,0], grid_indices[invalid_mask,1], grid_indices[invalid_mask,2], 3] = 0.05
             ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=False)
         common.set_axes_equal(ax)
         ax.view_init(elev=70, azim=-70)
