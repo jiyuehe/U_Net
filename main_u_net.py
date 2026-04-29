@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 #%%
 # mode settings
 train_predict_flag = 0 # 1: only do training; 0: only do prediction
-testing_data_flag = 0 # 0: simulation data; 1: clinical data
+testing_data_flag = 1 # 0: simulation data; 1: clinical data
 continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 
 # time samples
@@ -108,30 +108,30 @@ if train_predict_flag == 0:
    parameters['model'].load_state_dict(torch.load(parameters['result_folder'] / 'best_unet_model.pth', map_location=parameters['device'])) # load the best model
 
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
-      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, data_type='simulation')
-      # convert all elements to numpy arrays if they are tensors
-      predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]
-      truth_data = [x.numpy() if hasattr(x, 'numpy') else x for x in truth_data]
+      # uniformly sample N files
+      N = 3
+      file_names_test = np.array(parameters['file_names_test'])
+      if len(file_names_test) > N:
+         indices = np.linspace(0, len(file_names_test) - 1, N, dtype=int)
+         file_names_test = file_names_test[indices]
+
+      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='simulation')
    elif testing_data_flag == 1:
-      data_folder_patient = parameters['data_folder_patient']
-      file_names = {}
-      file_names[0] = '101_1-LA FAM1_processed_map_refined.npz'
-      file_names[1] = '102_1-lagood_processed_map_refined.npz'
+      file_names_test = {}
+      file_names_test[0] = '101_1-LA FAM1_processed_map_refined.npz'
+      file_names_test[1] = '102_1-lagood_processed_map_refined.npz'
 
+      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='clinical')
 
+   # convert all elements to numpy arrays if they are tensors
+   predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]
+   truth_data = [x.numpy() if hasattr(x, 'numpy') else x for x in truth_data]
 
-      # # forward pass
-      # outputs = parameters['model'](neural_network_input)
-
-      # # concatenate all batches
-      # predicted_data = torch.cat(all_predictions, dim=0).numpy()
-
-      # # save the prediction results
-      # np.save(parameters['result_folder'] / f'predictions.npy', predicted_data)
-
-   #%%
+   # plot the predicted and true activation time maps
    if testing_data_flag == 0: # 0: simulation data; 1: clinical data
-      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters)
+      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters, data_type='simulation')
+   elif testing_data_flag == 1:
+      modules.result_analysis.plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters, data_type='clinical')
 
 print('done')
 

@@ -63,8 +63,8 @@ def categorize_files_into_train_validation_test(data_folder_simulation):
     return file_names_train, file_names_validation, file_names_test
 
 def normalize_to_unit_interval(values):
-    min_value = np.min(values)
-    max_value = np.max(values)
+    min_value = np.nanmin(values)
+    max_value = np.nanmax(values)
     range_value = max_value - min_value
 
     if range_value == 0:
@@ -138,8 +138,8 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
         if data_type == 'simulation':
             y = simulation_results['lat_electrode']
         elif data_type == 'clinical':
-            y = np.zeros(n_nodes, dtype=np.float32)
-            y[good_e_id] = activation_time[good_id] # assign the clinical activation time to the good electrode nodes according to clinical data, and set the rest of the nodes to 0
+            y = np.full(n_nodes, np.nan, dtype=np.float32)
+            y[good_e_id] = activation_time[good_id] # assign the clinical activation time to the good electrode nodes according to clinical data
 
         y = normalize_to_unit_interval(y)
         

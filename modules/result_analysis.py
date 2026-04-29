@@ -159,7 +159,7 @@ def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_id
         plt.close()
         common.crop_image.execute(image_file_name)
 
-def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters):
+def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters, data_type):
     plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
     sparse_electrode_flag = 0 # color on all nodes
 
@@ -168,8 +168,12 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
     for sample_id in np.arange(n_samples):
         print(f'plotting sample {sample_id+1}/{n_samples}')
 
+        if data_type == 'simulation':
+            name_prefix = file_names_test[sample_id].split("_simulation_results_")[0]
+        elif data_type == 'clinical':
+            name_prefix = file_names_test[sample_id].split("_processed_map_refined.npz")[0]
+
         # load patient data to grab the electrode voxel ids
-        name_prefix = file_names_test[sample_id].split("_simulation_results_")[0]
         data = np.load(parameters['data_folder_patient'] / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
         map_data = {k: data[k] for k in data.files}
 
@@ -195,14 +199,34 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
         # compute error
         error_mae = np.nanmean(np.abs(data_predicted - data_truth)) # mean absolute error on normalized activation time
 
+        # plot true activation time map
         data_min = np.nanmin(data_truth)
         data_max = np.nanmax(data_truth)
         data_threshold = data_min-0.1
         converted_color = common.convert_value_to_red_blue(data_truth, data_min, data_max, data_threshold)
-        
+
+        # Only color and show voxels with non-NaN data_truth
+        valid_mask = ~np.isnan(data_truth)
+
         fig = plt.figure(figsize=(8, 6), dpi=100)
         ax = plt.axes(projection='3d')
-        scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
+
+        if plot_scatter_voxel_flag == 1:
+            # Only plot non-NaN nodes
+            ax.scatter(node[e_id[valid_mask]], node[e_id[valid_mask], 1], node[e_id[valid_mask], 2], c=converted_color[e_id[valid_mask], :], alpha=1.0, edgecolor='none', linewidth=0, marker='s', s=10, depthshade=True)
+        else:
+            # For voxel plot, set RGBA for all voxels, alpha=1 for valid, alpha=0.1 for NaN
+            voxel_color = np.zeros((*voxels.shape, 4))  # RGBA
+            # Set RGB for valid voxels
+            voxel_color[grid_indices[valid_mask,0], grid_indices[valid_mask,1], grid_indices[valid_mask,2], :3] = converted_color[valid_mask]
+            # Set alpha for valid voxels
+            voxel_color[grid_indices[valid_mask,0], grid_indices[valid_mask,1], grid_indices[valid_mask,2], 3] = 1.0
+            # Set alpha for NaN voxels (invalid_mask)
+            invalid_mask = ~valid_mask
+            if np.any(invalid_mask):
+                # Optionally set color for NaN voxels (e.g., gray or leave as zero)
+                voxel_color[grid_indices[invalid_mask,0], grid_indices[invalid_mask,1], grid_indices[invalid_mask,2], 3] = 0.1
+            ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=False)
         common.set_axes_equal(ax)
         ax.view_init(elev=70, azim=-70)
         plt.axis('off')
@@ -213,6 +237,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
         plt.close()
         common.crop_image(image_file_name)
 
+        # plot predicted activation time map
         data_min = np.nanmin(data_predicted)
         data_max = np.nanmax(data_predicted)
         data_threshold = data_min-0.1

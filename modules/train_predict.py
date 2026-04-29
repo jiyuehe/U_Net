@@ -178,17 +178,10 @@ def train_model(parameters):
 
     return train_loss_history, val_loss_history
 
-def predict(parameters, data_type):
+def predict(parameters, file_names_test, data_type):
     n_out_channel = 1
 
     parameters['model'].eval()
-
-    # uniformly sample N test file names
-    N = 5
-    file_names_test = np.array(parameters['file_names_test'])
-    if len(file_names_test) > N:
-        indices = np.linspace(0, len(file_names_test) - 1, N, dtype=int)
-        file_names_test = file_names_test[indices]
 
     n_test_samples = len(file_names_test)
     n_test_batches = (n_test_samples + parameters['batch_size'] - 1) // parameters['batch_size']
@@ -234,8 +227,8 @@ def predict(parameters, data_type):
                 all_predictions.append(pred_b) # shape: (n_out_channel, n_nodes_b)
 
                 # extract truth features for this sample
-                target_mask = target_coords[:, 0] == b
-                truth_b = target_sparse.F.cpu()[target_mask, :].T  # shape: (n_out_channel, n_nodes_b)
+                id = target_coords[:, 0] == b
+                truth_b = target_sparse.F.cpu()[id, :].T  # shape: (n_out_channel, n_nodes_b)
                 all_truths.append(truth_b)
 
 
