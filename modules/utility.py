@@ -1,4 +1,10 @@
 import numpy as np
+import torch
+
+try:
+    import MinkowskiEngine as ME
+except ImportError:
+    ME = None
 
 def categorize_files_into_train_validation_test(data_folder_simulation):
     train_validation_test_file_names = 'train_validation_test_file_names.txt'
@@ -56,3 +62,101 @@ def categorize_files_into_train_validation_test(data_folder_simulation):
 
     return file_names_train, file_names_validation, file_names_test
 
+def normalize_to_unit_interval(values):
+    min_value = np.min(values)
+    max_value = np.max(values)
+    range_value = max_value - min_value
+
+    if range_value == 0:
+        return np.zeros_like(values, dtype=np.float32)
+    
+    return ((values - min_value) / range_value).astype(np.float32)
+
+def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type):
+    data_folder_simulation = parameters['data_folder_simulation'] 
+    data_folder_patient = parameters['data_folder_patient']
+
+    x_temp = []
+    y_temp = []
+    nodes_list = []
+    for i in range(start_idx, end_idx):
+        if data_type == 'simulation':
+            name_prefix = file_names[i].split("_simulation_results_")[0]
+        elif data_type == 'clinical':
+            name_prefix = file_names[i].split("_processed_map_refined.npz")[0]
+        
+        # load electrode coordinates
+        # ------------------------------
+        data = np.load(data_folder_patient / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
+        map_data = {k: data[k] for k in data.files}
+
+        voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
+        node = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int) # center the coordinates at the origin and convert to integers. shape (n_nodes, 3)
+        n_nodes = node.shape[0]
+        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
+        
+        b = i - start_idx # batch index, 1 batch corresponds to 1 simulation on 1 geometry
+        batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
+        temp = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # shape (n_nodes, 4) = [batch_indices | x | y | z]
+        nodes_list.append(temp)
+
+        # load electrograms
+        # ------------------------------
+        # find the good electrode nodes that have good signals
+        activation_time = map_data['activation_uni']
+        good_id = [i for i, x in enumerate(activation_time) if x != 0]
+        good_e_id = voxel3mm_id_of_electrode[good_id]
+        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
+
+        if data_type == 'simulation':
+            simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
+        
+            x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :] # shape (t, n_node)
+            x = normalize_to_unit_interval(x)
+            # NOTE: x contains simulated electrograms for every node
+
+            x[:, non_e_id] = 0 # set electrograms of non-electrode nodes to 0. the non-electrode nodes are according to clinical data
+        elif data_type == 'clinical':
+            egm = map_data['clinical_electrogram_unipolar'] # shape (n_node, t), here t is from 0 to 2500-1
+            egm = egm.T # shape (t, n_node)
+            egm = egm[2000-250:2000+250, :] # grab electrogram within the time window of interest
+            egm = normalize_to_unit_interval(egm)
+            # NOTE: egm contains clinical electrograms of only the clinical electrodes
+
+            x = np.zeros((egm.shape[0], n_nodes), dtype=np.float32) # shape (t, n_node)
+            x[:, good_e_id] = egm[:, good_id] # assign the clinical electrograms to the good electrode nodes according to clinical data, and set the rest of the nodes to 0
+
+        # add a binary row to indicate non-electrode nodes as a mask
+        new_row = np.ones((1, x.shape[1]), dtype=np.float32)
+        new_row[0, non_e_id] = 0
+        x = np.concatenate((x, new_row), axis=0)
+        
+        x_temp.append(x)
+        
+        # load target activation time
+        # ------------------------------
+        if data_type == 'simulation':
+            y = simulation_results['lat_electrode']
+        elif data_type == 'clinical':
+            y = np.zeros(n_nodes, dtype=np.float32)
+            y[good_e_id] = activation_time[good_id] # assign the clinical activation time to the good electrode nodes according to clinical data, and set the rest of the nodes to 0
+
+        y = normalize_to_unit_interval(y)
+        
+        y_temp.append(y)
+
+    nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4)
+
+    # build feats_batch: (batch * n_nodes, t) — handles variable n_nodes per sample
+    feats_list = [torch.from_numpy(x).float().T for x in x_temp]  # each: (n_nodes, t)
+    feats_batch = torch.cat(feats_list, dim=0).to(parameters['device'])
+
+    # build targets_batch: (batch * n_nodes, 1)
+    targets_list = [torch.from_numpy(y).float().reshape(-1, 1) for y in y_temp]
+    targets_batch = torch.cat(targets_list, dim=0).to(parameters['device'])
+
+    # create MinkowskiEngine sparse tensor
+    neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=parameters['device'])
+    target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=parameters['device'])
+
+    return neural_network_input, target_sparse

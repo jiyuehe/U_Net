@@ -12,93 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
 import time
-
-try:
-    import MinkowskiEngine as ME
-except ImportError:
-    ME = None
-
-def normalize_to_unit_interval(values):
-    min_value = np.min(values)
-    max_value = np.max(values)
-    range_value = max_value - min_value
-
-    if range_value == 0:
-        return np.zeros_like(values, dtype=np.float32)
-    
-    return ((values - min_value) / range_value).astype(np.float32)
-
-def load_input_and_target(start_idx, end_idx, file_names, parameters):
-    data_folder_simulation = parameters['data_folder_simulation'] 
-    data_folder_patient = parameters['data_folder_patient']
-
-    x_temp = []
-    y_temp = []
-    nodes_list = []
-    for i in range(start_idx, end_idx):
-        # load patient data to grab the electrode voxel ids
-        name_prefix = file_names[i].split("_simulation_results_")[0]
-        data = np.load(data_folder_patient / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
-        map_data = {k: data[k] for k in data.files}
-
-        # find the good electrode nodes that have good signals
-        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
-        act = map_data['activation_uni']
-        good_id = [i for i, x in enumerate(act) if x != 0]
-
-        good_e_id = voxel3mm_id_of_electrode[good_id]
-        n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
-        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
-
-        voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
-        voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
-        node = voxel3mm_1mm_spacing # shape (n_nodes, 3)
-
-        b = i - start_idx
-        n_nodes = node.shape[0]
-        batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
-        sample_nodes = torch.cat([batch_indices, torch.from_numpy(node).int()], dim=1) # convert xyz to integers. shape (n_nodes, 4)
-        nodes_list.append(sample_nodes)
-
-        # load simulation results
-        simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
-        
-        x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :] # shape (t, n_node)
-        x = normalize_to_unit_interval(x)
-        x[:, non_e_id] = 0
-
-        # add a binary row to indicate non-electrode nodes as a mask
-        new_row = np.ones((1, x.shape[1]), dtype=np.float32)
-        new_row[0, non_e_id] = 0
-        x = np.concatenate((x, new_row), axis=0)
-        
-        x_temp.append(x)
-        
-        y = simulation_results['lat_electrode']
-        y = normalize_to_unit_interval(y)
-        
-        y_temp.append(y)
-
-    nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4)
-
-    # build feats_batch: (batch * n_nodes, t) — handles variable n_nodes per sample
-    feats_list = [torch.from_numpy(x).float().T for x in x_temp]  # each: (n_nodes, t)
-    feats_batch = torch.cat(feats_list, dim=0).to(parameters['device'])
-
-    # build targets_batch: (batch * n_nodes, 1)
-    targets_list = [torch.from_numpy(y).float().reshape(-1, 1) for y in y_temp]
-    targets_batch = torch.cat(targets_list, dim=0).to(parameters['device'])
-
-    # create MinkowskiEngine sparse tensor
-    neural_network_input = ME.SparseTensor(features=feats_batch, coordinates=nodes_batch, device=parameters['device'])
-    target_sparse = ME.SparseTensor(features=targets_batch, coordinates=nodes_batch, device=parameters['device'])
-
-    return neural_network_input, target_sparse
+from . import utility
 
 def mse_loss(predictions, targets):
     # extract features from sparse tensors
@@ -158,7 +76,7 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_train, parameters)
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_train, parameters, data_type='simulation')
             # print(output_data.shape)
 
             # set gradients to zero
@@ -204,7 +122,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_validation, parameters)
+                neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_validation, parameters, data_type='simulation')
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -246,21 +164,21 @@ def train_model(parameters):
 
         elif val_loss >= best_loss:
             epochs_without_improvement += 1
-            print(f"    No improvement for {epochs_without_improvement} epoch(s) (min val loss: {best_loss*1000:.4f}e-3)")
+            print(f"    no improvement for {epochs_without_improvement} epoch(s) (min val loss: {best_loss*1000:.4f}e-3)")
             
             if epochs_without_improvement >= parameters['early_stopping_patience']:
-                print(f"Early stopping triggered after {epoch+1} epochs")
-                print(f"Best validation loss: {best_loss*1000:.4f}e-3")
+                print(f"early stopping triggered after {epoch+1} epochs")
+                print(f"best validation loss: {best_loss*1000:.4f}e-3")
                 break
     
         epoch_end_time = time.time()
         epoch_duration = epoch_end_time - epoch_start_time
-        print(f"Training Loss: {train_loss*1000:.4f}e-3, Validation Loss: {val_loss*1000:.4f}e-3")
-        print(f"Computation time: {epoch_duration:.2f} seconds")
+        print(f"training/validation Loss: {train_loss*1000:.4f}e-3 / {val_loss*1000:.4f}e-3")
+        print(f"computation time: {epoch_duration:.1f} seconds")
 
     return train_loss_history, val_loss_history
 
-def predict_simulation(parameters):
+def predict(parameters, data_type):
     n_out_channel = 1
 
     parameters['model'].eval()
@@ -280,7 +198,7 @@ def predict_simulation(parameters):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            neural_network_input, target_sparse = load_input_and_target(start_idx, end_idx, file_names_test, parameters)
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_test, parameters, data_type)
 
             # forward pass
             outputs = parameters['model'](neural_network_input)
@@ -292,11 +210,11 @@ def predict_simulation(parameters):
             target_coords = target_sparse.C.cpu()
 
             # compute min coordinate for dense conversion (required if any coordinate is negative)
-            min_coord = coords[:, 1:].min(dim=0).values  # shape: (3,)
+            min_coord = coords[:, 1:].min(dim=0).values # shape: (3,)
 
             # extract predictions per sample (n_nodes may differ per sample)
             dense = outputs.dense(min_coordinate=min_coord)
-            prediction_dense = dense[0].cpu()  # shape: (batch, n_out_channel, X, Y, Z)
+            prediction_dense = dense[0].cpu() # shape: (batch, n_out_channel, X, Y, Z)
 
             for b in range(current_batch_size):
                 # get spatial coords for this sample
@@ -308,7 +226,7 @@ def predict_simulation(parameters):
                 pred_b = np.zeros((n_out_channel, n_nodes_b), dtype=np.float32)
                 for n, (x, y, z) in enumerate(sample_coords):
                     pred_b[:, n] = prediction_dense[b, :, x, y, z]
-                all_predictions.append(pred_b)  # shape: (n_out_channel, n_nodes_b)
+                all_predictions.append(pred_b) # shape: (n_out_channel, n_nodes_b)
 
                 # extract truth features for this sample
                 target_mask = target_coords[:, 0] == b
