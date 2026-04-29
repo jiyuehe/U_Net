@@ -118,8 +118,8 @@ if train_predict_flag == 0:
       predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='simulation')
    elif testing_data_flag == 1:
       file_names_test = {}
-      file_names_test[0] = '101_1-LA FAM1_processed_map_refined.npz'
-      file_names_test[1] = '102_1-lagood_processed_map_refined.npz'
+      file_names_test[0] = '100_1-LA FAM1_processed_map_refined.npz'
+      file_names_test[1] = '101_1-lagood_processed_map_refined.npz'
 
       predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='clinical')
 
