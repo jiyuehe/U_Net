@@ -1,10 +1,34 @@
 import numpy as np
 import torch
+import sys
 
 try:
     import MinkowskiEngine as ME
 except ImportError:
     ME = None
+
+
+def _materialize_npz(npz_obj):
+    """Eagerly read all arrays from an NpzFile into a plain dict."""
+    return {k: npz_obj[k] for k in npz_obj.files}
+
+
+def _load_npz_with_numpy2_pickle_compat(file_path, allow_pickle=True):
+    """Load npz and materialize arrays with NumPy 2.x -> 1.x pickle compatibility."""
+    try:
+        data = np.load(file_path, allow_pickle=allow_pickle)
+        return _materialize_npz(data)
+    except ModuleNotFoundError as e:
+        if "numpy._core" not in str(e):
+            raise
+
+        # NumPy 2.x pickles may reference numpy._core.*; old NumPy exposes numpy.core.*
+        sys.modules.setdefault('numpy._core', np.core)
+        sys.modules.setdefault('numpy._core.multiarray', np.core.multiarray)
+        sys.modules.setdefault('numpy._core._multiarray_umath', np.core._multiarray_umath)
+
+        data = np.load(file_path, allow_pickle=allow_pickle)
+        return _materialize_npz(data)
 
 def categorize_files_into_train_validation_test(data_folder_simulation):
     train_validation_test_file_names = 'train_validation_test_file_names.txt'
@@ -80,15 +104,14 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
     y_temp = []
     nodes_list = []
     for i in range(start_idx, end_idx):
-        if data_type == 'simulation':
-            name_prefix = file_names[i].split("_simulation_results_")[0]
-        elif data_type == 'clinical':
-            name_prefix = file_names[i].split("_processed_map_refined.npz")[0]
+        # if data_type == 'simulation':
+        #     name_prefix = file_names[i].split("_simulation_results_")[0]
+        # elif data_type == 'clinical':
+        #     name_prefix = file_names[i].split("_clinical_data.npz")[0]
         
         # load electrode coordinates
         # ------------------------------
-        data = np.load(data_folder_patient / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
-        map_data = {k: data[k] for k in data.files}
+        map_data = _load_npz_with_numpy2_pickle_compat(data_folder_patient / file_names[i], allow_pickle=True)
 
         voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
         node = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int) # center the coordinates at the origin and convert to integers. shape (n_nodes, 3)
@@ -103,7 +126,7 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
         # load electrograms
         # ------------------------------
         # find the good electrode nodes that have good signals
-        activation_time = map_data['activation_uni']
+        activation_time = map_data['clinical_activation_uni']
         good_id = [i for i, x in enumerate(activation_time) if x != 0]
         good_e_id = voxel3mm_id_of_electrode[good_id]
         non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)

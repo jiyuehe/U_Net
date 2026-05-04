@@ -168,18 +168,13 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
     for sample_id in np.arange(n_samples):
         print(f'plotting sample {sample_id+1}/{n_samples}')
 
-        if data_type == 'simulation':
-            name_prefix = file_names_test[sample_id].split("_simulation_results_")[0]
-        elif data_type == 'clinical':
-            name_prefix = file_names_test[sample_id].split("_processed_map_refined.npz")[0]
-
         # load patient data to grab the electrode voxel ids
-        data = np.load(parameters['data_folder_patient'] / f'{name_prefix}_processed_map_refined.npz', allow_pickle=True)
+        data = np.load(parameters['data_folder_patient'] / file_names_test[sample_id], allow_pickle=True)
         map_data = {k: data[k] for k in data.files}
 
         # find the good electrode nodes that have good signals
         voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
-        act = map_data['activation_uni']
+        act = map_data['clinical_activation_uni']
         good_id = [i for i, x in enumerate(act) if x != 0]
 
         good_e_id = voxel3mm_id_of_electrode[good_id]
