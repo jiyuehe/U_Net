@@ -104,11 +104,6 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
     y_temp = []
     nodes_list = []
     for i in range(start_idx, end_idx):
-        # if data_type == 'simulation':
-        #     name_prefix = file_names[i].split("_simulation_results_")[0]
-        # elif data_type == 'clinical':
-        #     name_prefix = file_names[i].split("_clinical_data.npz")[0]
-        
         # load electrode coordinates
         # ------------------------------
         map_data = _load_npz_with_numpy2_pickle_compat(data_folder_patient / file_names[i], allow_pickle=True)
