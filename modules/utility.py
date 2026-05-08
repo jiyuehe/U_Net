@@ -100,14 +100,30 @@ def categorize_files_into_train_validation_test(data_folder_simulation):
     return file_names_train, file_names_validation, file_names_test
 
 def normalize_to_unit_interval(values):
-    min_value = np.nanmin(values)
-    max_value = np.nanmax(values)
-    range_value = max_value - min_value
+    values = np.asarray(values)
 
-    if range_value == 0:
-        return np.zeros_like(values, dtype=np.float32)
-    
-    return ((values - min_value) / range_value).astype(np.float32)
+    if values.ndim == 1:
+        min_value = np.nanmin(values)
+        max_value = np.nanmax(values)
+        range_value = max_value - min_value
+
+        if range_value == 0:
+            return np.zeros_like(values, dtype=np.float32)
+
+        return ((values - min_value) / range_value).astype(np.float32)
+
+    if values.ndim == 2:
+        # Normalize each node's time sequence independently (axis 0 = time).
+        min_value = np.nanmin(values, axis=0, keepdims=True)
+        max_value = np.nanmax(values, axis=0, keepdims=True)
+        range_value = max_value - min_value
+
+        zero_range_mask = (range_value == 0)
+        safe_range = np.where(zero_range_mask, 1, range_value)
+        normalized = (values - min_value) / safe_range
+        normalized[:, zero_range_mask.squeeze(0)] = 0
+
+        return normalized.astype(np.float32)
 
 def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type):
     data_folder_simulation = parameters['data_folder_simulation'] 
@@ -177,19 +193,60 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
         y_temp.append(y)
 
         debug_plot = 1
-        if debug_plot == 1: # plot activation time map
+        if debug_plot == 1: 
             import matplotlib.pyplot as plt
+
+            # plot activation time map using y as activation times
             plt.figure()
             ax = plt.axes(projection='3d')
-            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=y, cmap='jet_r')
-            plt.title(f'Activation Time Map for Sample {i}')
+            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=y, marker='.', s=30, cmap='jet_r')
+
+            # force equal scale across x/y/z so geometry is not distorted.
+            x_mid = 0.5 * (node[:, 0].max() + node[:, 0].min())
+            y_mid = 0.5 * (node[:, 1].max() + node[:, 1].min())
+            z_mid = 0.5 * (node[:, 2].max() + node[:, 2].min())
+            max_radius = 0.5 * max(
+                node[:, 0].max() - node[:, 0].min(),
+                node[:, 1].max() - node[:, 1].min(),
+                node[:, 2].max() - node[:, 2].min(),
+            )
+            ax.set_xlim(x_mid - max_radius, x_mid + max_radius)
+            ax.set_ylim(y_mid - max_radius, y_mid + max_radius)
+            ax.set_zlim(z_mid - max_radius, z_mid + max_radius)
+
             ax.view_init(elev=70, azim=-70)
             plt.axis('off')
             plt.tight_layout()
 
             # save the plot
             plot_folder = parameters['result_folder']
-            plt.savefig(plot_folder / f'activation_time_map_sample_{i}.png')
+            plt.savefig(plot_folder / f'activation_time_map.png')
+            plt.close()
+
+            # plot activation time map using x to find the activation times
+            negative_dvdt = -np.diff(x[:-1, :], axis=0) # shape (t-1, n_node)
+            activation_time_estimated = np.argmax(negative_dvdt, axis=0).astype(np.float32) # shape (n_node,)
+            activation_time_estimated[activation_time_estimated == 0] = np.nan # set activation time of nodes without activation to nan
+
+            plt.figure()
+            ax = plt.axes(projection='3d')
+            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=activation_time_estimated, marker='.', s=30, cmap='jet_r')
+            # force equal scale across x/y/z so geometry is not distorted.
+            x_mid = 0.5 * (node[:, 0].max() + node[:, 0].min())
+            y_mid = 0.5 * (node[:, 1].max() + node[:, 1].min())
+            z_mid = 0.5 * (node[:, 2].max() + node[:, 2].min())
+            max_radius = 0.5 * max(
+                node[:, 0].max() - node[:, 0].min(),
+                node[:, 1].max() - node[:, 1].min(),
+                node[:, 2].max() - node[:, 2].min(),
+            )
+            ax.set_xlim(x_mid - max_radius, x_mid + max_radius)
+            ax.set_ylim(y_mid - max_radius, y_mid + max_radius)
+            ax.set_zlim(z_mid - max_radius, z_mid + max_radius)
+            ax.view_init(elev=70, azim=-70)
+            plt.axis('off')
+            plt.tight_layout() 
+            plt.savefig(plot_folder / f'activation_time_map_estimated.png')
             plt.close()
             
     nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4)

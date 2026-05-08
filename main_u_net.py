@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 #%%
 # mode settings
 train_predict_flag = 0 # 1: only do training; 0: only do prediction
-testing_data_flag = 0 # 0: simulation data; 1: clinical data
+testing_data_flag = 1 # 0: simulation data; 1: clinical data
 continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 
 # time samples
@@ -115,14 +115,14 @@ if train_predict_flag == 0:
          indices = np.linspace(0, len(file_names_test) - 1, N, dtype=int)
          file_names_test = file_names_test[indices]
 
-      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='simulation')
+      predicted_data, truth_data = modules.train_predict.predict(parameters, file_names_test, data_type='simulation')
    elif testing_data_flag == 1:
       file_names_test = {}
       file_names_test[0] = '99_2-LaFAM_cartofinder_data_clinical_data.npz'
       # file_names_test[1] = '100_1-LA FAM1_clinical_data.npz'
       # file_names_test[2] = '101_1-lagood_clinical_data.npz'
       
-      predicted_data, truth_data, file_names_test = modules.train_predict.predict(parameters, file_names_test, data_type='clinical')
+      predicted_data, truth_data = modules.train_predict.predict(parameters, file_names_test, data_type='clinical')
 
    # convert all elements to numpy arrays if they are tensors
    predicted_data = [x.numpy() if hasattr(x, 'numpy') else x for x in predicted_data]

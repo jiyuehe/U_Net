@@ -236,4 +236,4 @@ def predict(parameters, file_names_test, data_type):
         predictions = all_predictions # list of (n_out_channel, n_nodes_all_samples) arrays
         truths = all_truths # list of (n_out_channel, n_nodes_all_samples) tensors
 
-    return predictions, truths, file_names_test
+    return predictions, truths
