@@ -166,9 +166,6 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
             egm = egm.T # shape (t, n_node)
             egm = egm[2000-250:2000+250, :] # grab electrogram within the time window of interest
             x = normalize_to_unit_interval(egm)
-            
-        print('########## x.shape')
-        print(x.shape)
 
         # add a binary row to indicate non-electrode nodes as a mask
         new_row = np.ones((1, x.shape[1]), dtype=np.float32)
@@ -186,40 +183,40 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
             y[good_e_id] = activation_time[good_e_id] # assign the clinical activation time to the good electrode nodes according to clinical data
 
         y = normalize_to_unit_interval(y)
-        
-        print('########## y.shape')
-        print(y.shape)
 
         y_temp.append(y)
 
-        debug_plot = 1
+        debug_plot = 0
         if debug_plot == 1: 
             import matplotlib.pyplot as plt
+            plot_folder = parameters['result_folder']
+
+            def plot_map(node, lat):
+                plt.figure()
+                ax = plt.axes(projection='3d')
+                ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=lat, marker='.', s=30, cmap='jet_r')
+
+                # force equal scale across x/y/z so geometry is not distorted.
+                x_mid = 0.5 * (node[:, 0].max() + node[:, 0].min())
+                y_mid = 0.5 * (node[:, 1].max() + node[:, 1].min())
+                z_mid = 0.5 * (node[:, 2].max() + node[:, 2].min())
+                max_radius = 0.5 * max(
+                    node[:, 0].max() - node[:, 0].min(),
+                    node[:, 1].max() - node[:, 1].min(),
+                    node[:, 2].max() - node[:, 2].min(),
+                )
+                ax.set_xlim(x_mid - max_radius, x_mid + max_radius)
+                ax.set_ylim(y_mid - max_radius, y_mid + max_radius)
+                ax.set_zlim(z_mid - max_radius, z_mid + max_radius)
+
+                ax.view_init(elev=70, azim=-70)
+                plt.axis('off')
+                plt.tight_layout()
+
+                return plt
 
             # plot activation time map using y as activation times
-            plt.figure()
-            ax = plt.axes(projection='3d')
-            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=y, marker='.', s=30, cmap='jet_r')
-
-            # force equal scale across x/y/z so geometry is not distorted.
-            x_mid = 0.5 * (node[:, 0].max() + node[:, 0].min())
-            y_mid = 0.5 * (node[:, 1].max() + node[:, 1].min())
-            z_mid = 0.5 * (node[:, 2].max() + node[:, 2].min())
-            max_radius = 0.5 * max(
-                node[:, 0].max() - node[:, 0].min(),
-                node[:, 1].max() - node[:, 1].min(),
-                node[:, 2].max() - node[:, 2].min(),
-            )
-            ax.set_xlim(x_mid - max_radius, x_mid + max_radius)
-            ax.set_ylim(y_mid - max_radius, y_mid + max_radius)
-            ax.set_zlim(z_mid - max_radius, z_mid + max_radius)
-
-            ax.view_init(elev=70, azim=-70)
-            plt.axis('off')
-            plt.tight_layout()
-
-            # save the plot
-            plot_folder = parameters['result_folder']
+            plt = plot_map(node, y)
             plt.savefig(plot_folder / f'activation_time_map.png')
             plt.close()
 
@@ -228,24 +225,7 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
             activation_time_estimated = np.argmax(negative_dvdt, axis=0).astype(np.float32) # shape (n_node,)
             activation_time_estimated[activation_time_estimated == 0] = np.nan # set activation time of nodes without activation to nan
 
-            plt.figure()
-            ax = plt.axes(projection='3d')
-            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=activation_time_estimated, marker='.', s=30, cmap='jet_r')
-            # force equal scale across x/y/z so geometry is not distorted.
-            x_mid = 0.5 * (node[:, 0].max() + node[:, 0].min())
-            y_mid = 0.5 * (node[:, 1].max() + node[:, 1].min())
-            z_mid = 0.5 * (node[:, 2].max() + node[:, 2].min())
-            max_radius = 0.5 * max(
-                node[:, 0].max() - node[:, 0].min(),
-                node[:, 1].max() - node[:, 1].min(),
-                node[:, 2].max() - node[:, 2].min(),
-            )
-            ax.set_xlim(x_mid - max_radius, x_mid + max_radius)
-            ax.set_ylim(y_mid - max_radius, y_mid + max_radius)
-            ax.set_zlim(z_mid - max_radius, z_mid + max_radius)
-            ax.view_init(elev=70, azim=-70)
-            plt.axis('off')
-            plt.tight_layout() 
+            plt = plot_map(node, activation_time_estimated)
             plt.savefig(plot_folder / f'activation_time_map_estimated.png')
             plt.close()
             
