@@ -21,7 +21,6 @@ try:
 except ImportError:
     ME = None
 
-
 def _materialize_npz(npz_obj):
     """Eagerly read all arrays from an NpzFile into a plain dict."""
     return {k: npz_obj[k] for k in npz_obj.files}
@@ -125,7 +124,6 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
         voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
         node = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int) # center the coordinates at the origin and convert to integers. shape (n_nodes, 3)
         n_nodes = node.shape[0]
-        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
         
         b = i - start_idx # batch index, 1 batch corresponds to 1 simulation on 1 geometry
         batch_indices = torch.full((n_nodes, 1), b, dtype=torch.int32)
@@ -136,8 +134,7 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
         # ------------------------------
         # find the good electrode nodes that have good signals
         activation_time = map_data['clinical_activation_uni']
-        good_id = [i for i, x in enumerate(activation_time) if x != 0]
-        good_e_id = voxel3mm_id_of_electrode[good_id]
+        good_e_id = [i for i, x in enumerate(activation_time) if x != 0]
         non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
 
         if data_type == 'simulation':
@@ -149,14 +146,13 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
 
             x[:, non_e_id] = 0 # set electrograms of non-electrode nodes to 0. the non-electrode nodes are according to clinical data
         elif data_type == 'clinical':
-            egm = map_data['clinical_electrogram_unipolar'] # shape (n_node, t), here t is from 0 to 2500-1
+            egm = map_data['clinical_electrogram_unipolar_refined'] # shape (n_node, t), here t is from 0 to 2500-1
             egm = egm.T # shape (t, n_node)
             egm = egm[2000-250:2000+250, :] # grab electrogram within the time window of interest
-            egm = normalize_to_unit_interval(egm)
-            # NOTE: egm contains clinical electrograms of only the clinical electrodes
-
-            x = np.zeros((egm.shape[0], n_nodes), dtype=np.float32) # shape (t, n_node)
-            x[:, good_e_id] = egm[:, good_id] # assign the clinical electrograms to the good electrode nodes according to clinical data, and set the rest of the nodes to 0
+            x = normalize_to_unit_interval(egm)
+            
+        print('########## x.shape')
+        print(x.shape)
 
         # add a binary row to indicate non-electrode nodes as a mask
         new_row = np.ones((1, x.shape[1]), dtype=np.float32)
@@ -171,12 +167,31 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
             y = simulation_results['lat_electrode']
         elif data_type == 'clinical':
             y = np.full(n_nodes, np.nan, dtype=np.float32)
-            y[good_e_id] = activation_time[good_id] # assign the clinical activation time to the good electrode nodes according to clinical data
+            y[good_e_id] = activation_time[good_e_id] # assign the clinical activation time to the good electrode nodes according to clinical data
 
         y = normalize_to_unit_interval(y)
         
+        print('########## y.shape')
+        print(y.shape)
+
         y_temp.append(y)
 
+        debug_plot = 1
+        if debug_plot == 1: # plot activation time map
+            import matplotlib.pyplot as plt
+            plt.figure()
+            ax = plt.axes(projection='3d')
+            ax.scatter(node[:, 0], node[:, 1], node[:, 2], c=y, cmap='jet_r')
+            plt.title(f'Activation Time Map for Sample {i}')
+            ax.view_init(elev=70, azim=-70)
+            plt.axis('off')
+            plt.tight_layout()
+
+            # save the plot
+            plot_folder = parameters['result_folder']
+            plt.savefig(plot_folder / f'activation_time_map_sample_{i}.png')
+            plt.close()
+            
     nodes_batch = torch.cat(nodes_list, dim=0).to(parameters['device'])  # (batch * n_nodes, 4)
 
     # build feats_batch: (batch * n_nodes, t) — handles variable n_nodes per sample

@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 #%%
 # mode settings
 train_predict_flag = 0 # 1: only do training; 0: only do prediction
-testing_data_flag = 1 # 0: simulation data; 1: clinical data
+testing_data_flag = 0 # 0: simulation data; 1: clinical data
 continue_training = 0 # 0: train from scratch; 1: load best_unet_model.pth and continue training
 
 # time samples

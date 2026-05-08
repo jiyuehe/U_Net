@@ -173,17 +173,14 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
         map_data = {k: data[k] for k in data.files}
 
         # find the good electrode nodes that have good signals
-        voxel3mm_id_of_electrode = map_data['voxel3mm_id_of_electrode']
         act = map_data['clinical_activation_uni']
-        good_id = [i for i, x in enumerate(act) if x != 0]
+        good_e_id = [i for i, x in enumerate(act) if x != 0]
 
-        good_e_id = voxel3mm_id_of_electrode[good_id]
         n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
         non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
 
-        voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
-        voxel3mm_1mm_spacing = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int)
-        node = voxel3mm_1mm_spacing # shape (n_nodes, 3)
+        node = map_data['voxel3mm_1mm_spacing']
+        node = node - np.round(node.mean(axis=0)).astype(int) # shape (n_nodes, 3)
 
         e_id = np.arange(node.shape[0], dtype=np.int64)
         voxels, grid_indices = voxelize_nodes(node)
@@ -200,7 +197,7 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
         data_threshold = data_min-0.1
         converted_color = common.convert_value_to_red_blue(data_truth, data_min, data_max, data_threshold)
 
-        # Only color and show voxels with non-NaN data_truth
+        # only color and show voxels with non-NaN data_truth
         valid_mask = ~np.isnan(data_truth)
 
         fig = plt.figure(figsize=(8, 6), dpi=100)
