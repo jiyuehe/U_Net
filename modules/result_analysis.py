@@ -26,7 +26,6 @@ if str(workspace_root) not in sys.path:
     sys.path.insert(0, str(workspace_root))
 import PyHeartSim.common as common
 
-import modules
 import matplotlib.pyplot as plt 
 import numpy as np
 
@@ -80,87 +79,8 @@ def scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, 
         voxel_color[grid_indices[:,0], grid_indices[:,1], grid_indices[:,2]] = converted_color
         ax.voxels(voxels, facecolors=voxel_color, edgecolor=None, shade=False)
 
-def plot_mix_rhythm_activation_time_map(sparse_electrode_flag, start_idx, end_idx, parameters):
-    plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
-
-    # load input data
-    if sparse_electrode_flag == 1:
-        e_id = parameters['e_id']
-        non_e_id = parameters['non_e_id']
-    elif sparse_electrode_flag == 0:
-        n_nodes = parameters['node'].shape[0]
-        e_id = np.arange(n_nodes, dtype=np.int64)
-        non_e_id = []
-
-    input_data, _ = modules.load_data.input_output_data(start_idx, end_idx, parameters['data_folder'], parameters['data_folder'] / 'test', parameters['s1_test'], parameters['s2_test'], non_e_id, parameters)
-
-    # voxelize the nodes (prepare grid for all samples)
-    if parameters['geometry_flag'] in [1, 4]:
-        node = parameters['node']
-        voxels, grid_indices = voxelize_nodes(node)
-
-    for sample_id in range(len(parameters['s1_test'])):
-        # plot the mix rhythm map
-        x = input_data[sample_id].cpu().numpy()
-
-        if parameters['geometry_flag'] == 0:
-            x = x.reshape((parameters['n_timepoints'], parameters['grid_height'] * parameters['grid_width'])) # shape: (t, nodes)
-
-        # for each of the nodes, find the egm's max dvdt time index
-        dvdt = np.diff(x, axis=0)
-        if parameters['data_flag'] == 0: # action potential
-            max_dvdt = dvdt  # positive derivative
-        elif parameters['data_flag'] == 1: # electrogram
-            max_dvdt = -dvdt  # negative derivative
-        
-        max_dvdt_indices = np.argmax(max_dvdt, axis=0)  # shape: (nodes,)
-        max_dvdt_indices = max_dvdt_indices - np.min(max_dvdt_indices) # normalize to start from 0
-
-        debug_plot = 1
-        if debug_plot == 1:
-            if sample_id == 0:
-                node_id = e_id[0]
-                plt.figure()
-                plt.plot(x[:, node_id], 'b-')
-                plt.plot(dvdt[:, node_id], 'r-')
-                plt.axvline(x=max_dvdt_indices[node_id], color='k', linestyle='--')
-                plt.title('example signal and its dv/dt')
-                plt.xlabel('time index')
-                plt.ylabel('amplitude')
-                plt.legend(['signal', 'dv/dt', 'max dv/dt time'])
-                plt.tight_layout()
-                plt.savefig(parameters['result_folder'] / 'sample_egm.png', dpi=100, bbox_inches="tight", pad_inches=0)
-                plt.close()
-
-        data = max_dvdt_indices # this is the "local activation time" for the mix rhythm map
-        data_min = np.nanmin(data)
-        data_max = np.nanmax(data)
-        data_threshold = data_min-0.1
-        converted_color = common.convert_value_to_red_blue(data, data_min, data_max, data_threshold)
-        converted_color[non_e_id,:] = 0.5 # set non-electrode nodes to grey
-
-        fig = plt.figure(figsize=(8, 6), dpi=100)
-        if parameters['geometry_flag'] == 0:
-            color_image = converted_color.reshape((parameters['grid_height'], parameters['grid_width'], 3)) 
-            plt.imshow(color_image, origin='lower', interpolation='nearest')
-        elif parameters['geometry_flag'] in [1, 4]:
-            ax = plt.axes(projection='3d')
-            scatter_or_voxel_plot(plot_scatter_voxel_flag, sparse_electrode_flag, node, e_id, non_e_id, voxels, grid_indices, converted_color, fig, ax)
-            common.set_axes_equal(ax)
-            ax.view_init(elev=70, azim=-70)
-        plt.axis('off')
-        plt.tight_layout()
-
-        if sparse_electrode_flag == 1:
-            image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_{parameters["s2_test"][sample_id]}_lat_mix_sparse_nodes.png'
-        elif sparse_electrode_flag == 0:
-            image_file_name = parameters['result_folder'] / f'{parameters["s1_test"][sample_id]}_{parameters["s2_test"][sample_id]}_lat_mix_all_nodes.png'
-        plt.savefig(image_file_name, dpi=100, bbox_inches="tight", pad_inches=0)
-        plt.close()
-        common.crop_image.execute(image_file_name)
-
 def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, file_names_test, parameters, data_type):
-    plot_scatter_voxel_flag = 0 # 1: scatter plot; 0: voxel plot
+    plot_scatter_voxel_flag = 0 # 0: voxel plot; 1: scatter plot
     sparse_electrode_flag = 0 # color on all nodes
 
     n_samples = len(predicted_data)

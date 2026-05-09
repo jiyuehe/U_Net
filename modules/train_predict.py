@@ -78,8 +78,7 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_train, name_prefixes, parameters, data_type='simulation')
-            # print(output_data.shape)
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_train, name_prefixes, parameters, data_type='simulation', train_predict_type='train') # when train_predict_type='train', target_sparse will have values for all voxels, this is what we want during training: input only the subset of voxels as electrodes, but utilize all voxels' activation times as the target
 
             # set gradients to zero
             optimizer.zero_grad() 
@@ -126,7 +125,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_validation, name_prefixes, parameters, data_type='simulation')
+                neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_validation, name_prefixes, parameters, data_type='simulation', train_predict_type='train') # when train_predict_type='train', target_sparse will have values for all voxels, this is what we want during training: input only the subset of voxels as electrodes, but utilize all voxels' activation times as the target
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -205,7 +204,7 @@ def predict(parameters, file_names_test, data_type):
             elif data_type == 'clinical':
                 name_prefixes = [file_name.split('_clinical_data.npz')[0] for file_name in file_names_test[start_idx:end_idx]] # extract name prefixes for loading clinical data
 
-            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_test, name_prefixes, parameters, data_type)
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_test, name_prefixes, parameters, data_type, train_predict_type='predict')
 
             # forward pass
             outputs = parameters['model'](neural_network_input)
