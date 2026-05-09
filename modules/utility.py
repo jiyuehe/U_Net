@@ -183,7 +183,8 @@ def load_input_and_target(start_idx, end_idx, file_names, name_prefixes, paramet
         # load target activation time
         # ------------------------------
         if data_type == 'simulation':
-            y = simulation_results['lat_electrode']
+            y = simulation_results['lat_electrode'].astype(np.float32)
+            y[non_e_id] = np.nan # set activation time of nodes without activation to nan
         elif data_type == 'clinical':
             y = np.full(n_nodes, np.nan, dtype=np.float32)
             y[good_e_id] = activation_time[good_e_id] # assign the clinical activation time to the good electrode nodes according to clinical data

@@ -22,7 +22,6 @@ script_dir = Path(script_dir)
 import modules
 import torch
 import numpy as np
-import matplotlib.pyplot as plt 
 
 # from torchview import draw_graph # for visualizing the neural network model architecture
 
