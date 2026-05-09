@@ -168,16 +168,19 @@ def plot_truth_and_predicted_activation_time_map(truth_data, predicted_data, fil
     for sample_id in np.arange(n_samples):
         print(f'plotting sample {sample_id+1}/{n_samples}')
 
-        # load patient data to grab the electrode voxel ids
-        data = np.load(parameters['data_folder_patient'] / file_names_test[sample_id], allow_pickle=True)
-        map_data = {k: data[k] for k in data.files}
+        # grab the electrode voxel ids
+        if data_type == 'simulation':
+            pass
+        elif data_type == 'clinical':
+            data = np.load(parameters['data_folder_patient'] / file_names_test[sample_id], allow_pickle=True)
+            map_data = {k: data[k] for k in data.files}
 
-        # find the good electrode nodes that have good signals
-        act = map_data['clinical_activation_uni']
-        good_e_id = [i for i, x in enumerate(act) if x != 0]
+            # find the good electrode nodes that have good signals
+            act = map_data['clinical_activation_uni']
+            good_e_id = [i for i, x in enumerate(act) if x != 0]
 
-        n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
-        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
+            n_nodes = map_data['voxel3mm_1mm_spacing'].shape[0]
+            non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
 
         node = map_data['voxel3mm_1mm_spacing']
         node = node - np.round(node.mean(axis=0)).astype(int) # shape (n_nodes, 3)
