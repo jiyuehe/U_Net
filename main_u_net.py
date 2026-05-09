@@ -119,8 +119,8 @@ if train_predict_flag == 0:
    elif testing_data_flag == 1:
       file_names_test = {}
       file_names_test[0] = '99_2-LaFAM_cartofinder_data_clinical_data.npz'
-      # file_names_test[1] = '100_1-LA FAM1_clinical_data.npz'
-      # file_names_test[2] = '101_1-lagood_clinical_data.npz'
+      file_names_test[1] = '100_1-LA FAM1_clinical_data.npz'
+      file_names_test[2] = '101_1-lagood_clinical_data.npz'
       
       predicted_data, truth_data = modules.train_predict.predict(parameters, file_names_test, data_type='clinical')
 
