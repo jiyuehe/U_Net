@@ -125,7 +125,7 @@ def normalize_to_unit_interval(values):
 
         return normalized.astype(np.float32)
 
-def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type):
+def load_input_and_target(start_idx, end_idx, file_names, name_prefixes, parameters, data_type):
     data_folder_simulation = parameters['data_folder_simulation'] 
     data_folder_patient = parameters['data_folder_patient']
 
@@ -135,7 +135,8 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
     for i in range(start_idx, end_idx):
         # load electrode coordinates
         # ------------------------------
-        map_data = _load_npz_with_numpy2_pickle_compat(data_folder_patient / file_names[i], allow_pickle=True)
+        clinical_data_file_name = name_prefixes[i] + '_clinical_data.npz'
+        map_data = _load_npz_with_numpy2_pickle_compat(data_folder_patient / clinical_data_file_name, allow_pickle=True)
 
         voxel3mm_1mm_spacing = map_data['voxel3mm_1mm_spacing']
         node = voxel3mm_1mm_spacing - np.round(voxel3mm_1mm_spacing.mean(axis=0)).astype(int) # center the coordinates at the origin and convert to integers. shape (n_nodes, 3)
@@ -148,20 +149,25 @@ def load_input_and_target(start_idx, end_idx, file_names, parameters, data_type)
 
         # load electrograms
         # ------------------------------
-        # find the good electrode nodes that have good signals
-        activation_time = map_data['clinical_activation_uni']
-        good_e_id = [i for i, x in enumerate(activation_time) if x != 0]
-        non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
-
         if data_type == 'simulation':
+            # randomly make some electrodes bad
+            bad_electrode_ratio = 0.5
+            n_bad_electrode = int(bad_electrode_ratio * n_nodes)
+            non_e_id = np.random.choice(n_nodes, n_bad_electrode, replace=False)
+
             simulation_results = dict(np.load(data_folder_simulation / file_names[i], allow_pickle=False))
         
             x = simulation_results['electrogram_unipolar'][parameters['t_start']:parameters['t_end']:parameters['time_step'], :] # shape (t, n_node)
             x = normalize_to_unit_interval(x)
             # NOTE: x contains simulated electrograms for every node
 
-            x[:, non_e_id] = 0 # set electrograms of non-electrode nodes to 0. the non-electrode nodes are according to clinical data
+            x[:, non_e_id] = 0 # set electrograms of bad electrode nodes to 0. the bad electrode nodes are randomly selected
         elif data_type == 'clinical':
+            # find the good electrode nodes that have good signals
+            activation_time = map_data['clinical_activation_uni']
+            good_e_id = [i for i, x in enumerate(activation_time) if x != 0]
+            non_e_id = np.setdiff1d(np.arange(n_nodes), good_e_id)
+
             egm = map_data['clinical_electrogram_unipolar_refined'] # shape (n_node, t), here t is from 0 to 2500-1
             egm = egm.T # shape (t, n_node)
             egm = egm[2000-250:2000+250, :] # grab electrogram within the time window of interest

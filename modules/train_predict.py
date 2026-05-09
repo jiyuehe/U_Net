@@ -62,6 +62,8 @@ def train_model(parameters):
         # shuffle training indices at the start of each epoch
         perm = np.random.permutation(n_train_samples)
         file_names_train = np.array(parameters['file_names_train'])[perm]
+
+        name_prefixes = [file_name.split('_simulation_results_')[0] for file_name in file_names_train] # extract name prefixes for loading clinical data
         
         # training phase
         # ------------------------------
@@ -76,7 +78,7 @@ def train_model(parameters):
             start_idx = batch_idx * parameters['batch_size']
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_train_samples)
 
-            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_train, parameters, data_type='simulation')
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_train, name_prefixes, parameters, data_type='simulation')
             # print(output_data.shape)
 
             # set gradients to zero
@@ -111,6 +113,8 @@ def train_model(parameters):
         perm = np.random.permutation(n_validation_samples)
         file_names_validation = np.array(parameters['file_names_validation'])[perm]
 
+        name_prefixes = [file_name.split('_simulation_results_')[0] for file_name in file_names_validation] # extract name prefixes for loading clinical data
+
         with torch.no_grad(): # disables gradient computation
         # why disable gradients during validation?
         # validation does not require gradient calculations since we are not updating model weights.
@@ -122,7 +126,7 @@ def train_model(parameters):
                 start_idx = batch_idx * parameters['batch_size']
                 end_idx = min((batch_idx + 1) * parameters['batch_size'], n_validation_samples)
 
-                neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_validation, parameters, data_type='simulation')
+                neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_validation, name_prefixes, parameters, data_type='simulation')
                 
                 # forward pass (no gradient tracking)
                 outputs = parameters['model'](neural_network_input)
@@ -196,7 +200,12 @@ def predict(parameters, file_names_test, data_type):
             end_idx = min((batch_idx + 1) * parameters['batch_size'], n_test_samples)
 
             # load data
-            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_test, parameters, data_type)
+            if data_type == 'simulation':
+                name_prefixes = [file_name.split('_simulation_results_')[0] for file_name in file_names_test[start_idx:end_idx]] # extract name prefixes for loading clinical data
+            elif data_type == 'patient':
+                name_prefixes = [file_name.split('_clinical_data_')[0] for file_name in file_names_test[start_idx:end_idx]] # extract name prefixes for loading clinical data
+
+            neural_network_input, target_sparse = utility.load_input_and_target(start_idx, end_idx, file_names_test, name_prefixes, parameters, data_type)
 
             # forward pass
             outputs = parameters['model'](neural_network_input)
